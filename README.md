@@ -1,46 +1,55 @@
-# Multimodal Clinical-CT Classification of CAP and COP
+# Multimodal Clinical CT Classification of CAP and COP
 
-This repository contains research code for multimodal classification of
-community-acquired pneumonia (CAP) and cryptogenic organising pneumonia (COP)
-using structured clinical information and CT-derived representations.
+This repository contains the code associated with the study of patient-level
+classification between community-acquired pneumonia (CAP) and cryptogenic
+organising pneumonia (COP) using pretreatment structured clinical information
+and chest CT.
 
-The software is intended for research use and method reproduction. It is not a
-clinical diagnostic device and must not be used to make patient-care decisions.
+The software is provided for research and method-reproduction purposes. It is
+not a clinical diagnostic device and must not be used for patient-care decisions.
 
-## Scope
+## Study Workflows
 
-The repository provides semantic, modular implementations for:
+The code follows the workflows reported in the manuscript and supplementary
+materials:
 
-- structured clinical-data preprocessing and classification;
-- lesion-region CT radiomics;
-- whole-chest CT representations;
-- stable multi-representation CT features;
-- lesion segmentation used by the lesion-region workflow;
-- unimodal evaluation and clinical-imaging fusion;
-- configuration, validation, and lightweight tests.
+- a structured clinical-information branch using 16 pretreatment variables;
+- a lesion-region CT branch using predicted lesion masks and PyRadiomics;
+- a full-chest, full-field-of-view three-dimensional CT branch;
+- a stable multi-representation chest CT branch;
+- clinical-only, imaging-only, and clinical-imaging multimodal models;
+- patient-level probability fusion and evaluation in internal and external
+  cohorts.
 
-The public modules use descriptive names rather than internal experiment labels.
+The lesion-region workflow is:
+
+```text
+DICOM CT -> three-dimensional lesion segmentation -> predicted lesion mask
+         -> lesion-region PyRadiomics -> imaging probability
+         -> clinical-imaging probability fusion
+```
+
+Internal performance is evaluated with patient-level out-of-fold predictions.
+External performance is evaluated after model freezing. Classification measures
+use the study's fixed threshold, and discrimination is evaluated from continuous
+patient-level probabilities.
 
 ## Repository Layout
 
 ```text
 configs/                 Model and preprocessing configuration
-clinical/                Clinical-data documentation
-cohorts/                 Cohort and input-contract documentation
-data/                    Local, restricted input data (not versioned)
+data/                    Local input data, not versioned
 docs/                    Method and usage documentation
-imaging/                 Imaging documentation
-models/                  Local model artifacts (not versioned)
-outputs/                 Local runtime outputs (not versioned)
-scripts/                 Command-line entry points
+models/                  Local model artifacts, not versioned
+outputs/                 Local runtime outputs, not versioned
+scripts/                 Workflow entry points
 src/cap_cop/             Python package
-tests/                   Lightweight automated tests
+tests/                   Lightweight code tests
 ```
 
 ## Installation
 
-Create an environment with Python 3.10 or later, then install the package and
-the dependencies required by the workflow you intend to run:
+Create a Python environment and install the package:
 
 ```powershell
 python -m venv .venv
@@ -49,16 +58,15 @@ python -m pip install --upgrade pip
 python -m pip install -e .
 ```
 
-Some imaging workflows require additional packages such as PyTorch, SimpleITK,
-PyRadiomics, NumPy, pandas, and scikit-learn. Use the supplied requirements
-files or the environment specification provided with the authorised data and
-model artifacts.
+The imaging workflows require the packages specified by the supplied
+requirements files, including the relevant versions of PyTorch, SimpleITK,
+PyRadiomics, NumPy, pandas, and scikit-learn.
 
-## Quick Verification
+## Code Check
 
-The lightweight test suite checks package imports, configuration parsing,
-identity handling, preprocessing interfaces, fusion, and evaluation utilities.
-It does not train a model or require patient-level data.
+The repository includes a lightweight check for imports, configuration loading,
+preprocessing interfaces, probability fusion, and metric calculation. It does
+not train models or require patient-level data.
 
 ```powershell
 $ProjectRoot = (Get-Location).Path
@@ -67,67 +75,29 @@ python .\scripts\run_smoke_tests.py
 python -m pytest
 ```
 
-## Research Workflows
-
-The main command-line entry points are grouped by workflow:
-
-```text
-scripts/run_full_cohort_clinical_replay.py
-scripts/run_full_cohort_lesion_segmentation.py
-scripts/run_full_cohort_lesion_radiomics.py
-scripts/run_full_cohort_whole_chest_representations.py
-scripts/run_full_cohort_multimodal_replay.py
-```
-
-The corresponding Python modules are under `src/cap_cop/clinical`,
-`src/cap_cop/imaging`, `src/cap_cop/models`, and `src/cap_cop/pipelines`.
-Use the `--help` option on each script to view the required input and output
+Use the `--help` option on the workflow scripts to view their input and output
 arguments.
-
-The lesion-region workflow follows:
-
-```text
-DICOM CT -> lesion segmentation -> lesion region -> PyRadiomics features
-         -> imaging classification -> clinical-imaging fusion
-```
-
-Whole-chest workflows read CT series, apply the configured spatial and intensity
-transformations, generate the required representation, and evaluate the
-corresponding imaging or multimodal classifier.
 
 ## Data and Model Artifacts
 
-Patient-level clinical data, CT images, segmentation masks, labels, trained
-weights, prediction files, and generated outputs are intentionally excluded
-from version control. They must be obtained and used only under the applicable
-institutional, ethical, and data-sharing approvals.
+Patient-level clinical tables, labels, CT images, lesion masks, trained model
+weights, and generated predictions are not included in this repository. They
+must be accessed only under the applicable institutional and data-sharing
+requirements.
 
-Place authorised local artifacts under the relative paths documented by the
-relevant configuration and manifest files. Do not place names, hospital numbers,
-original identifiers, private identifier mappings, or unrestricted clinical
-records in this repository.
+The repository can be inspected and its lightweight checks can be run without
+patient-level data. Full patient-level evaluation requires the corresponding
+authorised input data and model artifacts described by the study materials.
 
-The repository can be used to inspect the code and run lightweight tests without
-restricted artifacts. Full patient-level replay requires the corresponding
-authorised input data and model artifacts.
+Do not place names, hospital numbers, original identifiers, private identifier
+mappings, or unrestricted clinical records in this repository.
 
-## Reproducibility and Outputs
+## Output and Reporting
 
-All runtime paths are resolved from the project root or from explicit command-line
-arguments. Generated masks, features, embeddings, predictions, logs, and other
-temporary files belong under `outputs/`, which is excluded from version control.
-
-When reporting results, record the software environment, input manifest version,
-model-artifact checksums, cohort definition, and command used. Do not overwrite
-reference artifacts with newly generated outputs.
-
-## Data Availability
-
-The source code is provided for research transparency. Patient-level data and
-model artifacts are not distributed in this repository because their use and
-sharing are governed by institutional approval, privacy protection, and data-use
-conditions. Qualified users should follow the procedures of the responsible
-institution to request access.
+Runtime outputs should be written under `outputs/`, which is excluded from
+version control. When reproducing study results, record the software environment,
+input data version, model-artifact checksums, cohort definition, and command
+used.
 
 ## Citation
 
@@ -136,5 +106,5 @@ of this repository used for the analysis.
 
 ## License
 
-The licensing terms for this repository and any third-party components should be
-confirmed by the authors before public redistribution.
+Licensing terms for this repository and third-party components should be
+confirmed by the authors before redistribution.
