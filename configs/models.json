@@ -1,0 +1,103 @@
+{
+  "models": [
+    {
+      "name": "paper_model_a_primary_lesion_radiomics",
+      "paper_role": "Paper model A, main model",
+      "clinical_strategy": "full_structured_clinical",
+      "imaging_strategy": "lesion_roi_radiomics",
+      "clinical_weight": 0.70,
+      "imaging_weight": 0.30,
+      "threshold": 0.50,
+      "status": "canonical_identity_replay_completed_result_lock_pending",
+      "blocker": "The canonical raw-DICOM replay and strict internal OOF now pass. The historical paper lock used a conflicting internal V2IMG crosswalk, so its internal AUROC cannot be carried forward as the corrected patient-level result. A replacement result lock requires an authorized scientific decision."
+    },
+    {
+      "name": "paper_model_b_whole_chest_ct_comparator",
+      "paper_role": "Paper model B, whole-chest CT comparator",
+      "clinical_strategy": "full_structured_clinical",
+      "imaging_strategy": "whole_chest_ct",
+      "clinical_weight": 0.60,
+      "imaging_weight": 0.40,
+      "threshold": 0.50,
+      "status": "full_cohort_raw_dicom_replay_completed_exact_to_tolerance",
+      "blocker": null
+    },
+    {
+      "name": "paper_model_c_stable_multirepresentation_ct",
+      "paper_role": "Paper model C, stable multi-representation CT comparator",
+      "clinical_strategy": "full_structured_clinical",
+      "imaging_strategy": "stable_multirepresentation_ct",
+      "clinical_weight": 0.75,
+      "imaging_weight": 0.25,
+      "threshold": 0.50,
+      "status": "canonical_identity_replay_completed_result_lock_pending",
+      "blocker": "The canonical raw-DICOM lesion-phenotype replay now passes. The historical internal tabular join reused imaging identifiers across namespaces, so its internal result is retained only as historical audit evidence and is not the corrected patient-level result. A replacement result lock requires an authorized scientific decision."
+    },
+    {
+      "name": "paper_model_d_supplementary_exploratory_comparator",
+      "paper_role": "Supplementary exploratory comparator",
+      "clinical_strategy": "structural_missingness_clinical",
+      "imaging_strategy": "exploratory_comparator_imaging",
+      "clinical_weight": 0.50,
+      "imaging_weight": 0.50,
+      "threshold": 0.50,
+      "status": "full_cohort_replay_completed_exploratory",
+      "blocker": "This remains a supplementary exploratory comparator; internal imaging probabilities reproduce within 3.5e-5 and external probabilities reproduce to machine precision."
+    },
+    {
+      "name": "clinical_input_comparison_full_structured",
+      "paper_role": "Fixed stable multi-representation CT clinical-input comparison",
+      "clinical_strategy": "full_structured_clinical",
+      "imaging_strategy": "stable_multirepresentation_ct",
+      "clinical_weight": 0.75,
+      "imaging_weight": 0.25,
+      "threshold": 0.50,
+      "status": "full_cohort_component_replay_completed",
+      "blocker": null
+    },
+    {
+      "name": "clinical_input_comparison_structural_missingness",
+      "paper_role": "Fixed stable multi-representation CT clinical-input comparison",
+      "clinical_strategy": "structural_missingness_clinical",
+      "imaging_strategy": "stable_multirepresentation_ct",
+      "clinical_weight": 0.75,
+      "imaging_weight": 0.25,
+      "threshold": 0.50,
+      "status": "canonical_identity_replay_completed_comparison_lock_pending",
+      "blocker": "The public comparison can be regenerated under the canonical branch-specific mapping, but the historical SP6-linked internal results are retained only as audit evidence. A corrected comparison lock requires an authorized scientific decision."
+    },
+    {
+      "name": "clinical_input_comparison_core_clinical",
+      "paper_role": "Fixed stable multi-representation CT clinical-input comparison",
+      "clinical_strategy": "core_clinical",
+      "imaging_strategy": "stable_multirepresentation_ct",
+      "clinical_weight": 0.55,
+      "imaging_weight": 0.45,
+      "threshold": 0.50,
+      "status": "canonical_identity_replay_completed_comparison_lock_pending",
+      "blocker": "The canonical comparison replay is executable, but the historical SP6-linked internal results are retained only as audit evidence. A corrected comparison lock requires an authorized scientific decision."
+    },
+    {
+      "name": "clinical_input_comparison_availability_gated",
+      "paper_role": "Fixed stable multi-representation CT clinical-input comparison",
+      "clinical_strategy": "availability_gated_clinical",
+      "imaging_strategy": "stable_multirepresentation_ct",
+      "clinical_weight": 0.70,
+      "imaging_weight": 0.30,
+      "threshold": 0.50,
+      "status": "canonical_identity_replay_completed_comparison_lock_pending",
+      "blocker": "The canonical comparison replay is executable, but the historical SP6-linked internal results are retained only as audit evidence. A corrected comparison lock requires an authorized scientific decision."
+    },
+    {
+      "name": "clinical_input_comparison_alternate_configuration",
+      "paper_role": "Fixed stable multi-representation CT clinical-input comparison",
+      "clinical_strategy": "alternate_clinical_configuration",
+      "imaging_strategy": "stable_multirepresentation_ct",
+      "clinical_weight": 0.65,
+      "imaging_weight": 0.35,
+      "threshold": 0.50,
+      "status": "canonical_identity_replay_completed_comparison_lock_pending",
+      "blocker": "The registry name says locked RF, but the internal strict-family prediction uses 12 RF, 2 elastic-net, and 1 gradient-boosting outer models; this distinction must remain explicit. The canonical comparison replay is executable, but historical SP6-linked internal results remain audit evidence until an authorized corrected comparison lock is approved."
+    }
+  ]
+}

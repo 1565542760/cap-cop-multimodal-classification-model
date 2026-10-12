@@ -1,0 +1,33 @@
+{
+  "paper_models": {
+    "primary_lesion_radiomics": {
+      "clinical_replay": "outputs/full_reproduction_20261010/clinical/full_structured",
+      "imaging_replay": "lesion_radiomics",
+      "external_clinical_weight": 0.70,
+      "external_imaging_weight": 0.30
+    },
+    "whole_chest_ct_comparator": {
+      "clinical_replay": "outputs/full_reproduction_20261010/clinical/full_structured",
+      "imaging_replay": "whole_chest_ct",
+      "external_clinical_weight": 0.60,
+      "external_imaging_weight": 0.40
+    },
+    "stable_multirepresentation_comparator": {
+      "clinical_replay": "outputs/full_reproduction_20261010/clinical/full_structured",
+      "imaging_replay": "stable_multirepresentation_ct",
+      "external_clinical_weight": 0.75,
+      "external_imaging_weight": 0.25
+    },
+    "supplementary_exploratory_comparator": {
+      "clinical_replay": "outputs/full_reproduction_20261010/clinical/structural_missingness",
+      "imaging_replay": "supplementary_exploratory_full_chest_ct",
+      "external_clinical_weight": 0.50,
+      "external_imaging_weight": 0.50
+    }
+  },
+  "threshold": 0.50,
+  "weight_policy": {
+    "internal": "Use selected_outer_weight stored on each locked OOF row.",
+    "external": "Use final_weight_clinical and final_weight_image stored in the frozen external lock."
+  }
+}

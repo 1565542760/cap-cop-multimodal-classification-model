@@ -1,0 +1,11 @@
+# Exact versions observed in D:\CAP_COP\.venv_locked_radiomics.
+# This environment covers the A lesion-ROI PyRadiomics replay.
+numpy==1.26.4
+pandas==2.3.3
+scipy==1.13.1
+scikit-learn==1.6.1
+SimpleITK==2.5.6
+PyYAML==6.0.3
+matplotlib==3.9.4
+joblib==1.5.3
+pyradiomics==3.1.0

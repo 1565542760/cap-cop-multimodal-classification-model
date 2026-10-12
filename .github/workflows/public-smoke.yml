@@ -1,0 +1,33 @@
+name: public-code-smoke
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install lightweight smoke dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy pandas scikit-learn PyYAML pytest
+          python -m pip install --no-deps -e .
+      - name: Compile public Python
+        run: python -m compileall -q src scripts
+      - name: Run public smoke checks
+        env:
+          PYTHONPATH: src
+        run: python scripts/run_smoke_tests.py
+      - name: Run unit tests
+        env:
+          PYTHONPATH: src
+        run: python -m pytest -q tests
+      - name: Run release boundary check
+        env:
+          PYTHONPATH: src
+        run: python scripts/check_github_release.py

@@ -1,0 +1,88 @@
+# Patient-level and local-only data
+/data/**
+!/data/README.md
+
+# Runtime outputs
+/outputs/**
+!/outputs/.gitkeep
+*.log
+*.tmp
+*.cache
+*.pid
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Model weights and generated predictions/checkpoints
+/models/**
+!/models/
+!/models/README.md
+*.pt
+*.pth
+*.pkl
+*.joblib
+*.ckpt
+*.npy
+*prediction*.csv
+*predictions*.csv
+*label*.csv
+models/**/*features*.csv
+models/**/*FEATURES*.csv
+models/**/*feature_matrix*.csv
+models/**/*.pt
+models/**/*.pth
+models/**/*.pkl
+models/**/*.joblib
+models/**/*.ckpt
+models/**/*prediction*.csv
+models/**/*predictions*.csv
+models/**/*label*.csv
+models/**/*membership*.csv
+models/segmentation/locked_checkpoints/**
+models/segmentation/manifests/*mask_manifest*.csv
+models/segmentation/manifests/*preprocessing_manifest*.csv
+models/segmentation/manifests/locked_nested_split_patient_manifest.csv
+
+# Local environment and tooling
+.venv/
+.venv_locked_torch/
+.venv_locked_radiomics/
+.venv_py39_radiomics/
+venv/
+env/
+.env
+.env.*
+CAP_COP_TOOLS/
+
+# Historical source snapshots retained locally for provenance only. The public
+# entry points use the semantic replay modules below instead.
+/src/cap_cop/pipelines/lesion_roi_pyradiomics_pipeline.py
+/src/cap_cop/pipelines/stable_multirepresentation_ct_pipeline.py
+/src/cap_cop/pipelines/locked_weighted_multimodal_fusion_pipeline.py
+/src/cap_cop/pipelines/whole_chest_ct_foundation_transfer_pipeline.py
+/src/cap_cop/pipelines/exploratory_full_chest_densenet_pipeline.py
+/src/cap_cop/pipelines/structural_missingness_clinical_artifact_recovery.py
+/src/cap_cop/pipelines/structural_missingness_clinical_external_generalization.py
+/src/cap_cop/pipelines/structural_missingness_lesion_radiomics_exploratory_fusion.py
+
+# Local provenance and patient-level audit records. These may contain private
+# source paths, neutral-to-source bridges, or case-level acquisition metadata.
+/docs/ci_audit/**
+/docs/migration_manifests/**
+/docs/full_reproduction_evidence_20261011/**
+/docs/model_d_provenance_audit.md
+/docs/migration_acceptance_20261001.md
+/docs/minimal_reproduction_acceptance_20261007.md
+/docs/subset_end_to_end_reproduction_acceptance_20261007.md
+/configs/private_locked_pair_ids.json
+models/**/*manifest*.csv
+models/**/*acquisition*.csv
+models/**/*model_registry*.csv
+
+# Patient-level historical lock audits and post-hoc analyses. The public
+# package keeps semantic replay entry points; these local scripts require
+# governed lock tables and stay outside the GitHub candidate set.
+/scripts/audit_historical_imaging_identity_mapping.py
+/scripts/audit_locked_delong.py
+/scripts/compute_locked_prediction_ci.py
+/scripts/run_supplementary_exploratory_subset_replay.py

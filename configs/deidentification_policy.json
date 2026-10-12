@@ -1,0 +1,36 @@
+{
+  "profile": "CAP_COP_public_release_candidate_v1",
+  "patient_name": "public_subject_id",
+  "patient_id": "public_subject_id",
+  "remove_private_tags": true,
+  "blank_all_date_time_vr": true,
+  "remove_overlay_and_curve_groups": true,
+  "remap_instance_uids": true,
+  "retain_pixel_data_bytes": true,
+  "remove_direct_identifier_keywords": [
+    "PatientBirthDate",
+    "PatientSex",
+    "PatientAge",
+    "PatientAddress",
+    "PatientTelephoneNumbers",
+    "OtherPatientIDs",
+    "OtherPatientNames",
+    "AccessionNumber",
+    "InstitutionName",
+    "InstitutionAddress",
+    "ReferringPhysicianName",
+    "PerformingPhysicianName",
+    "OperatorsName",
+    "PatientComments",
+    "ImageComments",
+    "DeviceSerialNumber",
+    "StationName",
+    "ProtocolName",
+    "SeriesDescription"
+  ],
+  "manual_release_gates": [
+    "hospital_or_ethics_data_sharing_approval",
+    "burned_in_pixel_annotation_review",
+    "independent_privacy_review"
+  ]
+}
