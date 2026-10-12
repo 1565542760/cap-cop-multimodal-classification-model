@@ -203,9 +203,21 @@ def main() -> int:
     if len(ALTERNATE_FEATURES) != 16:
         failures.append("alternate clinical lock does not expose 16 features")
 
-    for path in ("data/", "outputs/", ".venv/", "models/segmentation/locked_checkpoints/"):
+    # Check representative files inside ignored directories. Git does not
+    # necessarily report a directory itself as ignored when an allowed
+    # README or placeholder is intentionally kept inside it.
+    ignore_probes = (
+        ("data/", "data/__gitignore_probe__.dcm"),
+        ("outputs/", "outputs/__gitignore_probe__.csv"),
+        (".venv/", ".venv/__gitignore_probe__.py"),
+        (
+            "models/segmentation/locked_checkpoints/",
+            "models/segmentation/locked_checkpoints/__gitignore_probe__.pth",
+        ),
+    )
+    for label, path in ignore_probes:
         if not git_ignored(path):
-            failures.append(f"Git ignore missing for {path}")
+            failures.append(f"Git ignore missing for {label}")
 
     result = {
         "code_package_gate": "PASS" if not failures else "FAIL",
