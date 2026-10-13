@@ -20,7 +20,7 @@ history:
 - `docs/migration_manifests/`
 - `docs/full_reproduction_evidence_20261011/` and the local Supplementary Exploratory Multimodal Comparator provenance note,
   because these aggregate records retain internal pair selectors
-- historical migration/reproduction acceptance notes listed in `.gitignore`
+- historical migration/workflow execution acceptance notes listed in `.gitignore`
 - case-level model manifests and acquisition manifests under `models/`
 - `data/`, `outputs/`, checkpoints, weights, predictions, and caches
 
@@ -40,6 +40,6 @@ The following local scripts are also outside the GitHub candidate set because
 they directly consume governed patient-level lock tables or post-hoc audit
 inputs: `audit_historical_imaging_identity_mapping.py`,
 `audit_locked_delong.py`, `compute_locked_prediction_ci.py`, and
-`run_supplementary_exploratory_subset_replay.py`. The public semantic replay
+`run_supplementary_exploratory_subset_replay.py`. The public semantic workflow run
 entry points remain separate from these controlled audits.
 

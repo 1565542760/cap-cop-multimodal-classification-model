@@ -47,7 +47,7 @@ the temporary repository and test dependencies were removed afterward.
 ## Boundary
 
 The clean candidate is a valid public code/configuration package, not a patient-level
-reproduction bundle. Exact Internal375/External33 replay requires the separately
+workflow execution bundle. Exact Internal375/External33 workflow run requires the separately
 authorized `data/` and `models/` trees. The command
 `scripts/check_authorized_artifact_bundle.py` checks that bundle when it is available.
 It does not publish or embed restricted files.
@@ -76,11 +76,11 @@ with the two locked local environments and exited with code 0. It executed:
 
 This is an actual local integration run, but it remains a single-case/minimal
 validation entry point. It is not evidence that all historical paper metrics are
-reproduced, and it does not resolve the documented A/C historical identity-bridge
+matched, and it does not resolve the documented A/C historical identity-bridge
 issue or the governed data-publication decision.
 
 The same minimal entry point was rerun with `-MainPython` and `-RadiomicsPython`
 explicitly pointing to the two locked environments rather than using the default
 project-relative locations; it also exited with code 0. This verifies that the
 public entry point can use externally located compatible environments without
-changing the replay contract.
+changing the workflow run contract.

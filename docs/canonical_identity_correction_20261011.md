@@ -2,8 +2,8 @@
 
 ## Decision
 
-The public reproduction workspace uses one patient identity standard. The public
-multimodal replay does not expose or accept the historical lesion identity join.
+The public workflow execution workspace uses one patient identity standard. The public
+multimodal workflow run does not expose or accept the historical lesion identity join.
 
 Lesion-derived predictions are matched as:
 
@@ -40,10 +40,10 @@ their corrected metrics are used in the manuscript.
 This correction changes identity handling only. It does not change model architecture,
 feature definitions, weights, thresholds, splits, seeds, or the historical lock files.
 
-## Validation replay
+## Validation workflow run
 
-On 2026-10-11, the public multimodal replay was run with `--component-mode locked` and
-the canonical mapping. The component cache was the previously archived locked replay
+On 2026-10-11, the public multimodal workflow run was run with `--component-mode locked` and
+the canonical mapping. The component cache was the previously archived locked workflow run
 cache; no model was trained and no weight or threshold was selected.
 
 - Internal ID set: 375 subjects; SHA-256 `2826CAADA919764FEB31A86C9A964B396A5AD370FC0FD82261E530FDFADF94BE`.
@@ -56,5 +56,5 @@ cache; no model was trained and no weight or threshold was selected.
 
 The temporary validation summary had SHA-256
 `94C3F571D66951F1ACC5D039A425C8D9A44802A6740032946E100BF0C014B5BF` and was removed
-from the public workspace after verification. These values are a canonical replay
+from the public workspace after verification. These values are a canonical workflow run
 check, not a newly locked paper result.

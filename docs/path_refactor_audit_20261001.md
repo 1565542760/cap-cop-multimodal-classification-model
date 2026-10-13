@@ -46,7 +46,7 @@ These files should not be used to claim standalone execution from `<project-root
 ## Current Boundary
 
 The tested local commands no longer require live runtime reads from
-`<private-experiment-root>`. Full A/B/C/D replay entry points have now been run
+`<private-experiment-root>`. Full A/B/C/D workflow run entry points have now been run
 from the public workspace inputs and local governed model artifacts. The original
 experiment tree remains necessary only as the authoritative archive for provenance,
 original run evidence, private ID mappings, and any runtime intermediates that are
@@ -54,7 +54,7 @@ not part of the public workspace; it is not a live runtime dependency of the tes
 public entry points.
 # 2026-10-11 Final Runtime Path Pass
 
-The public/local runtime tree was rescanned after full-cohort replay. All `<private-experiment-root>` literals were removed from `scripts`, `src`, and `configs`. The migrated semantic pipeline copies now default to the current project root and accept only project-root configuration; no runtime entry point requires a live read from the original experiment tree. These edits change only path/configuration text and environment reporting; no algorithm, feature, split, seed, model parameter, weight, threshold, or metric calculation was changed.
+The public/local runtime tree was rescanned after full-cohort workflow run. All `<private-experiment-root>` literals were removed from `scripts`, `src`, and `configs`. The migrated semantic pipeline copies now default to the current project root and accept only project-root configuration; no runtime entry point requires a live read from the original experiment tree. These edits change only path/configuration text and environment reporting; no algorithm, feature, split, seed, model parameter, weight, threshold, or metric calculation was changed.
 
 Current SHA-256 values after path-only adaptation:
 

@@ -1,7 +1,7 @@
-# Strict Replay Status - 2026-10-11
+# Strict Workflow run Status - 2026-10-11
 
-This record documents the current public-workspace replay boundary. It is a local
-reproduction record, not a claim that the historical paper lock is scientifically correct.
+This record documents the current public-workspace workflow run boundary. It is a local
+workflow execution record, not a claim that the historical paper lock is scientifically correct.
 
 ## Changes in the public workspace
 
@@ -12,9 +12,9 @@ reproduction record, not a claim that the historical paper lock is scientificall
 - `scripts/run_full_cohort_multimodal_replay.py` supports `--models` so one semantic model can
   be audited without silently treating missing B-D component outputs as a pass.
 - Locked lesion imaging components are read from `models/lesion_radiomics/` in locked mode,
-  rather than from an older regenerated replay directory.
+  rather than from an older regenerated workflow run directory.
 - The multimodal command reports
-  `PASS_WITH_LOCK_DIFFERENCES_REQUIRING_REVIEW` when canonical replay probabilities differ from
+  `PASS_WITH_LOCK_DIFFERENCES_REQUIRING_REVIEW` when canonical workflow run probabilities differ from
   the historical fusion lock by more than `1e-12`.
 
 ## Identity evidence
@@ -46,7 +46,7 @@ match the historical V3.13 fusion lock. The maximum absolute difference is
 `3.4e-16`. This is evidence of an identity-join defect in the historical fusion result, not
 evidence that the public RF was refit.
 
-## A primary-lesion locked component replay
+## A primary-lesion locked component workflow run
 
 Command, run from outside the project directory:
 
@@ -67,21 +67,21 @@ Summary:
 - Status: `PASS_WITH_LOCK_DIFFERENCES_REQUIRING_REVIEW`.
 - Internal: 375 subjects; canonical ID-set SHA-256
   `2826CAADA919764FEB31A86C9A964B396A5AD370FC0FD82261E530FDFADF94BE`.
-- Internal corrected replay metrics: AUROC `0.859872`, accuracy `0.792`, sensitivity `0.680`,
+- Internal corrected workflow run metrics: AUROC `0.859872`, accuracy `0.792`, sensitivity `0.680`,
   specificity `0.848`, F1 `0.6854838709677419`.
 - Historical internal lock metrics: AUROC `0.871296`, accuracy `0.8053333333333333`,
   sensitivity `0.640`, specificity `0.888`, F1 `0.6866952789699571`.
-- Internal replay versus historical lock: maximum probability difference
+- Internal workflow run versus historical lock: maximum probability difference
   `0.20982430477285802`, mean difference `0.06167089485625127`.
 - External: 33 subjects; ID-set SHA-256
   `FC90C915BA793FF256DA8ECBBA03DE9161CF97262DAC989A7AAB1F0A0A96C0EF`.
-- External replay versus historical lock: maximum difference
+- External workflow run versus historical lock: maximum difference
   `1.1102230246251565e-16`, mean difference `3.1960965860421176e-17`.
 - External AUROC `0.7330827067669173`, accuracy `0.696969696969697`, sensitivity `0.5714285714285714`,
   specificity `0.7894736842105263`, F1 `0.6153846153846154`.
 
 The internal difference is an expected consequence of using the corrected canonical lesion
-identity. The public code must not silently report the historical internal lock as reproduced.
+identity. The public code must not silently report the historical internal lock as matched.
 
 ## A strict OOF regeneration
 
@@ -90,13 +90,13 @@ historical 5-outer/4-inner Internal375 feature-stability, redundancy, model-sele
 and outer-prediction procedure from the public raw feature matrix, crosswalk, and
 acquisition metadata. External labels are not read. The companion
 `scripts/verify_lesion_radiomics_nested_oof.py` checks the generated 375-row OOF file
-against the public reference above. The full replay passed with maximum probability
+against the public reference above. The full workflow run passed with maximum probability
 delta `3.3306690738754696e-16`, mean delta `4.0264088359739013e-17`, and identical
 AUROC `0.6987039999999999`.
 
-## Lesion RF locked-artifact replay
+## Lesion RF locked-artifact workflow run
 
-The strict artifact replay summary is:
+The strict artifact workflow run summary is:
 
 `<project-root>\outputs\canonical_a_formal_20261011\lesion_radiomics\full_cohort_lesion_radiomics_locked_replay_summary.json`
 
@@ -115,21 +115,21 @@ the original locked RF parameters (`max_features=sqrt`, `max_depth=5`, `min_samp
 - `pytest` was not installed in the checked environments, so the pytest runner itself was not
   executed. The test functions were called directly without changing project files.
 
-## Reproduction boundary
+## Workflow execution boundary
 
 The public workspace now runs the raw A chain (DICOM to predicted lesion mask to PyRadiomics),
 the locked lesion RF, and the strict nested Internal375 OOF procedure. The strict OOF file is
 numerically identical to the public reference at floating-point tolerance. The canonical A
-multimodal fusion can also be rerun, but it does not reproduce the historical Internal375 V3.13
+multimodal fusion can also be rerun, but it does not generate the historical Internal375 V3.13
 fusion numbers because the historical lock contains an identity-join defect. The corrected
 canonical result is therefore available for scientific review, but no replacement result lock
 has been created without an author decision.
 
-B has a full raw-DICOM replay through the P95 96^3 foundation representation and its locked
-fusion. C has a full raw-DICOM replay through lesion-phenotype extraction and its downstream
+B has a full raw-DICOM workflow run through the P95 96^3 foundation representation and its locked
+fusion. C has a full raw-DICOM workflow run through lesion-phenotype extraction and its downstream
 representation; its regenerated canonical multimodal result likewise differs from the historical
-lock because of the historical identity mismatch. D has a full exploratory replay, with a small
+lock because of the historical identity mismatch. D has a full exploratory workflow run, with a small
 aggregate difference from its historical summary, and remains a supplementary exploratory
 comparator. These statuses must not be collapsed into a claim that every historical paper number
-is reproduced exactly.
+is matched exactly.
 
