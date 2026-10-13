@@ -18,7 +18,7 @@ history:
 
 - `docs/ci_audit/`
 - `docs/migration_manifests/`
-- `docs/full_reproduction_evidence_20261011/` and the local Model D provenance note,
+- `docs/full_reproduction_evidence_20261011/` and the local Supplementary Exploratory Multimodal Comparator provenance note,
   because these aggregate records retain internal pair selectors
 - historical migration/reproduction acceptance notes listed in `.gitignore`
 - case-level model manifests and acquisition manifests under `models/`

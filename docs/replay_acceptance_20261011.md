@@ -257,7 +257,7 @@ The public fusion entry point was updated to resolve the paper-facing semantic n
 (`paper_model_a_*` through `paper_model_d_*`) to the component dispatch names without
 changing any model parameter, weight, threshold, split, or prediction calculation. It
 also accepts either structured component roots with a `clinical/` subdirectory or flat
-replay roots, and supports a separate `--clinical-root` for Model D's exploratory
+replay roots, and supports a separate `--clinical-root` for Supplementary Exploratory Multimodal Comparator's exploratory
 clinical artifact.
 
 The four model-specific commands were executed from outside the project directory:
@@ -282,10 +282,10 @@ the project directory with the locked Torch and PyRadiomics environments. All se
 steps exited with code 0. The internal single-case chain now uses the same LPS-oriented
 2-mm resampling helper as U-Net segmentation, preventing a prior mask/image grid
 mismatch (`169x175x175` versus `168x174x174`). The corrected chain produced 13
-PyRadiomics features and a Model A RF probability of `0.3002668918308495` for the
+PyRadiomics features and a Full Structured Clinical--Lesion-ROI Radiomics model RF probability of `0.3002668918308495` for the
 local smoke case. The run also verified the external `96x96x96` P95 tensor contract,
-the Model A external RF lock, the Model B linear-probe lock, the Model C/SP6 tables,
-and the Model D artifact/single-case fusion path.
+the Full Structured Clinical--Lesion-ROI Radiomics model external RF lock, the Full Structured Clinical--Whole-Chest CT model linear-probe lock, the Full Structured Clinical--Stable Multi-Representation CT model/SP6 tables,
+and the Supplementary Exploratory Multimodal Comparator artifact/single-case fusion path.
 
 The PowerShell entry point now checks every native Python exit code and stops on the
 first failed step; it no longer reports completion after a swallowed Python error.

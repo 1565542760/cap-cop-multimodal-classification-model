@@ -26,8 +26,8 @@ The canonical DICOM migration manifest and the native-geometry governance table 
 - Same canonical and historical subject: 2/375.
 - Different subject: 373/375.
 - Different CAP/COP diagnosis: 40/375.
-- Model A image probability versus lock under canonical mapping: max absolute delta `0.6994143492428594`, mean `0.20614242222603502`.
-- Model A image probability versus lock under historical mapping: max `3.3306690738754696e-16`, mean `5.121828886937389e-17`.
+- Full Structured Clinical--Lesion-ROI Radiomics model image probability versus lock under canonical mapping: max absolute delta `0.6994143492428594`, mean `0.20614242222603502`.
+- Full Structured Clinical--Lesion-ROI Radiomics model image probability versus lock under historical mapping: max `3.3306690738754696e-16`, mean `5.121828886937389e-17`.
 
 Primary evidence:
 
@@ -58,7 +58,7 @@ The rejected temporary crosswalk under `outputs/identity_audit/corrected_public_
 
 Historical-lock mode reproduces the stored A-D fusion probabilities. Canonical-identity mode
 reassigns lesion-derived and SP6-linked internal rows using the branch-native public mapping;
-therefore Model A, Model C, and the fixed-SP6 clinical-input comparisons must be reported
+therefore Full Structured Clinical--Lesion-ROI Radiomics model, Full Structured Clinical--Stable Multi-Representation CT model, and the fixed-SP6 clinical-input comparisons must be reported
 separately from their historical identity-defective locks.
 
 - A canonical internal AUROC: `0.859872`; historical locked AUROC: `0.871296`.

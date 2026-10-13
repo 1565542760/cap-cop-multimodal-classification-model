@@ -12,6 +12,6 @@ candidate is not a public data release.
 External cohort directories intentionally do not contain `masks` directories because the
 locked external workflows use no migrated external masks. External `.npy` files, when
 present elsewhere in the local workspace, are derived intermediate arrays for checksum
-comparison only; they are not a replacement for original DICOM input. Local replay may
+comparison only; they are not a replacement for original DICOM input. Local workflows may
 use the candidate DICOM tree, but publication requires the manifest's pixel-review and
 data-sharing fields to be resolved first.

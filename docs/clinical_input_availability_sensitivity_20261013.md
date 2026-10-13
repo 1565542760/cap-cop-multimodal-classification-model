@@ -4,14 +4,14 @@ Status: post-hoc exploratory analysis. This analysis does not replace or modify 
 
 ## Controlled design
 
-The lesion-ROI radiomics image probabilities were held fixed for every scenario. The clinical branch was the only deliberately changed component. Internal evaluation used repeated five-fold patient-level OOF predictions with the same three seeds, random-forest family, balanced-bootstrap augmentation, fold-fitted median imputation, 1%/99% clipping, categorical encoding, and missingness indicators used by the public full-structured implementation. External inference reused the Model A external adaptation procedure; external labels were read only after prediction for evaluation.
+The lesion-ROI radiomics image probabilities were held fixed for every scenario. The clinical branch was the only deliberately changed component. Internal evaluation used repeated five-fold patient-level OOF predictions with the same three seeds, random-forest family, balanced-bootstrap augmentation, fold-fitted median imputation, 1%/99% clipping, categorical encoding, and missingness indicators used by the public full-structured implementation. External inference reused the Full Structured Clinical--Lesion-ROI Radiomics external adaptation procedure; external labels were read only after prediction for evaluation.
 
-Fusion used the locked Model A weights: the Internal375 replay used the per-fold weights carried in the canonical Model A replay table, and External33 used clinical/image weights of 0.70/0.30. The classification threshold was 0.50 for every scenario.
+Fusion used the locked Full Structured Clinical--Lesion-ROI Radiomics weights: the Internal375 workflow used the per-fold weights carried in the canonical component table, and External33 used clinical/image weights of 0.70/0.30. The classification threshold was 0.50 for every scenario.
 
 ## Scenarios
 
 The run contains 21 clinical-input scenarios. `full_clinical_input` is the
-baseline clinical branch of Model A, not a second Model A implementation:
+baseline clinical branch of the Full Structured Clinical--Lesion-ROI Radiomics model, not a second implementation:
 
 - `full_clinical_input`;
 - random missingness at 20% and 30% across the full clinical input;
@@ -35,7 +35,7 @@ Random masks are deterministic and label-blind. The one-at-a-time scenarios set 
 
 The complete metric tables and patient-level prediction files are in the output directory. Results are descriptive comparisons; no scenario was selected using External33 labels, and no causal claim is implied.
 
-## Reproducibility files
+## Workflow files
 
 - Configuration: `configs/clinical_input_availability_scenarios.json`
 - Code: `scripts/run_clinical_input_availability_sensitivity.py`
@@ -53,8 +53,8 @@ The complete metric tables and patient-level prediction files are in the output 
 - 21 scenarios completed with process exit code 0.
 - Every scenario contains 375 Internal375 rows and 33 External33 rows.
 - Image probabilities are identical across all scenarios for each patient.
-- Full16 clinical probabilities match the existing Model A canonical replay with maximum absolute difference 0.
-- Full16 fusion probabilities match the existing Model A canonical replay with maximum absolute difference `1.1102230246251565e-16`.
+- Full16 clinical probabilities match the existing canonical component table with maximum absolute difference 0.
+- Full16 fusion probabilities match the existing canonical component table with maximum absolute difference `1.1102230246251565e-16`.
 - No original experiment files or locked result files were modified.
 
 This analysis may support a supplementary description of robustness to predefined clinical-input unavailability. It should not be described as a prespecified primary analysis or as proof that clinical missingness causes a performance change.

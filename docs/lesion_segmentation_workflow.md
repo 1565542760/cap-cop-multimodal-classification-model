@@ -1,7 +1,7 @@
 # Lesion Segmentation Workflow
 
-This local workspace includes the U-Net segmentation link required by the Model A
-lesion-ROI radiomics pathway.
+This local workspace includes the U-Net segmentation link required by the Full
+Structured Clinical--Lesion-ROI Radiomics pathway.
 
 ## Local Modules
 
@@ -35,5 +35,5 @@ local-only evidence and are ignored where they contain patient-level rows.
 ## Boundary
 
 The single-case smoke test proves module import, config/checkpoint loading, DICOM
-preprocessing and U-Net forward inference. It is not a full 375/33-case reproduction
+preprocessing and U-Net forward inference. It is not a full 375/33-case workflow
 and does not regenerate paper metrics.

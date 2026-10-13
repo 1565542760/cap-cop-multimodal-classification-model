@@ -1,6 +1,6 @@
 # CAP/COP Multimodal Classification
 
-This repository provides the model implementations and reproduction workflows
+This repository provides the model implementations and execution workflows
 for patient-level classification between community-acquired pneumonia (CAP)
 and cryptogenic organising pneumonia (COP) using structured clinical
 information and chest CT.
@@ -44,7 +44,7 @@ DICOM CT
   -> clinical--imaging probability fusion
 ```
 
-## Reproduction Workflow
+## Workflow
 
 ### 1. Install
 
@@ -69,8 +69,8 @@ For the whole-chest CT and representation workflows, use an environment with:
 python -m pip install -r requirements-replay-tested.txt
 ```
 
-The two replay requirements files describe separate replay environments and
-should not be installed into the same environment when their pinned package
+The two imaging requirements files describe separate environments and should
+not be installed into the same environment when their pinned package
 versions conflict.
 
 ### Required Python environments
@@ -80,11 +80,11 @@ The workflows require the following environments:
 | Workflow | Python | Dependency specification |
 |---|---:|---|
 | Clinical models, multimodal fusion, and clinical-input availability sensitivity | 3.12.14 | `pyproject.toml` and the test environment |
-| Lesion segmentation, whole-chest CT, and B/C representation replay | 3.11.16 | `requirements-replay-tested.txt` |
-| Lesion-ROI PyRadiomics and A replay | 3.9.23 | `requirements-radiomics-replay-tested.txt` |
+| Lesion segmentation, whole-chest CT, and stable representation workflows | 3.11.16 | `requirements-replay-tested.txt` |
+| Lesion-ROI PyRadiomics workflow | 3.9.23 | `requirements-radiomics-replay-tested.txt` |
 
 The clinical-input availability sensitivity workflow requires NumPy 2.5.3,
-pandas 3.0.6, and scikit-learn 1.9.1. The separate replay environments use
+pandas 3.0.6, and scikit-learn 1.9.1. The separate imaging environments use
 the package combinations specified for the imaging workflows.
 
 The workflows are kept in separate environments because the tested imaging
@@ -173,7 +173,7 @@ The workflow keeps the lesion-ROI imaging probabilities fixed and evaluates
 the configured clinical-input scenarios using the same preprocessing,
 cross-validation, fusion, and threshold settings defined in the configuration.
 
-### 6. Reproduction outputs
+### 6. Outputs
 
 Workflow outputs are written to the selected output directory. The evaluation
 outputs contain patient-level probabilities, classification metrics, scenario

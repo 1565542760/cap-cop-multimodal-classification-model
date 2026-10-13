@@ -48,11 +48,11 @@ cache; no model was trained and no weight or threshold was selected.
 
 - Internal ID set: 375 subjects; SHA-256 `2826CAADA919764FEB31A86C9A964B396A5AD370FC0FD82261E530FDFADF94BE`.
 - External ID set: 33 subjects; SHA-256 `FC90C915BA793FF256DA8ECBBA03DE9161CF97262DAC989A7AAB1F0A0A96C0EF`.
-- Model A canonical internal AUROC: `0.859872`; historical lock comparison: `0.871296`.
-- Model A canonical external AUROC: `0.7330827067669173`, equal to the locked external metric.
-- Model B internal/external AUROC: `0.929152` / `0.612781954887218`.
-- Model C internal/external AUROC: `0.865024` / `0.7631578947368421`.
-- Model D internal/external AUROC: `0.896096` / `0.5413533834586466`; D remains exploratory.
+- Full Structured Clinical--Lesion-ROI Radiomics model canonical internal AUROC: `0.859872`; historical lock comparison: `0.871296`.
+- Full Structured Clinical--Lesion-ROI Radiomics model canonical external AUROC: `0.7330827067669173`, equal to the locked external metric.
+- Full Structured Clinical--Whole-Chest CT model internal/external AUROC: `0.929152` / `0.612781954887218`.
+- Full Structured Clinical--Stable Multi-Representation CT model internal/external AUROC: `0.865024` / `0.7631578947368421`.
+- Supplementary Exploratory Multimodal Comparator internal/external AUROC: `0.896096` / `0.5413533834586466`; D remains exploratory.
 
 The temporary validation summary had SHA-256
 `94C3F571D66951F1ACC5D039A425C8D9A44802A6740032946E100BF0C014B5BF` and was removed
