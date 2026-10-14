@@ -26,11 +26,12 @@ def id_set_digest(ids: list[str]) -> str:
 
 
 def cohort_manifest_paths(root: Path) -> list[Path]:
+    data_root = root / "data" / "deidentified_release_candidate"
     return [
-        root / "data" / "internal" / "CAP" / "manifest.csv",
-        root / "data" / "internal" / "COP" / "manifest.csv",
-        root / "data" / "external" / "CAP" / "manifest.csv",
-        root / "data" / "external" / "COP" / "manifest.csv",
+        data_root / "internal" / "CAP" / "manifest.csv",
+        data_root / "internal" / "COP" / "manifest.csv",
+        data_root / "external" / "CAP" / "manifest.csv",
+        data_root / "external" / "COP" / "manifest.csv",
     ]
 
 

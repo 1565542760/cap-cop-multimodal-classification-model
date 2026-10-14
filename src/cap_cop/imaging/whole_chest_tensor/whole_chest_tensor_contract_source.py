@@ -22,9 +22,9 @@ from PIL import Image, ImageDraw
 from scipy import ndimage
 
 
-ROOT = Path(os.environ.get("CAP_COP_PRIVATE_EXPERIMENT_V2_ROOT", Path(__file__).resolve().parents[5] / "experiment_v2"))
-V1 = Path(os.environ.get("CAP_COP_PRIVATE_EXPERIMENT_V1_ROOT", Path(__file__).resolve().parents[5] / "experiment_v1"))
-RAW_IMAGE_BASE = Path(os.environ.get("CAP_COP_PRIVATE_INTERNAL_CT_IMAGE_ROOT", Path(__file__).resolve().parents[5] / "data" / "internal_ct_image"))
+ROOT = Path(os.environ.get("CAP_COP_PRIVATE_EXPERIMENT_V2_ROOT", Path(__file__).resolve().parents[4] / "experiment_v2"))
+V1 = Path(os.environ.get("CAP_COP_PRIVATE_EXPERIMENT_V1_ROOT", Path(__file__).resolve().parents[4] / "experiment_v1"))
+RAW_IMAGE_BASE = Path(os.environ.get("CAP_COP_PRIVATE_INTERNAL_CT_IMAGE_ROOT", Path(__file__).resolve().parents[4] / "data" / "internal_ct_image"))
 CASE_MASTER = V1 / "cohort_and_schema" / "case_master_v1.csv"
 OUT = ROOT / "imaging_final_96cubed_tensor_contract_v2"
 DIRS = {k: OUT / k for k in ["configs", "runs", "reports", "audit", "montage", "tensor_preview", "locked_candidates"]}

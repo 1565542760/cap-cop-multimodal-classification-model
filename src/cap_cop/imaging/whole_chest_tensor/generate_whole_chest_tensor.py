@@ -24,7 +24,7 @@ def sha256_file(path: Path) -> str:
 
 
 def load_subject_row(project_root: Path, subject_id: str) -> tuple[pd.Series, Path]:
-    manifests = sorted((project_root / "data").glob("*/*/manifest.csv"))
+    manifests = sorted((project_root / "data" / "deidentified_release_candidate").glob("*/*/manifest.csv"))
     rows = []
     for manifest_path in manifests:
         df = pd.read_csv(manifest_path, dtype=str)

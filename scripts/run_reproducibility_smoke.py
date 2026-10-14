@@ -30,7 +30,7 @@ def _first_case(manifests: pd.DataFrame, cohort: str, label: str) -> pd.Series:
 
 
 def _read_clinical(row: pd.Series) -> pd.DataFrame:
-    clinical_path = project_root() / "data" / row["cohort"] / row["diagnosis_label"] / row["clinical_path"]
+    clinical_path = project_root() / "data" / "deidentified_release_candidate" / row["cohort"] / row["diagnosis_label"] / row["clinical_path"]
     frame = pd.read_csv(clinical_path)
     for id_column in ["public_subject_id", "case_id_public"]:
         if id_column in frame.columns:
@@ -46,7 +46,7 @@ def main() -> None:
     clinical_results = {}
     for cohort, label in [("internal", "CAP"), ("internal", "COP"), ("external", "CAP"), ("external", "COP")]:
         row = _first_case(manifests, cohort, label)
-        dicom_path = root / "data" / cohort / label / row["ct_path"]
+        dicom_path = root / "data" / "deidentified_release_candidate" / cohort / label / row["ct_path"]
         dicom_results[f"{cohort}_{label}"] = dicom_smoke_summary(dicom_path)
         transformed = preprocessor.transform(_read_clinical(row))
         clinical_frame = _read_clinical(row)
@@ -60,8 +60,9 @@ def main() -> None:
             "has_label_feature": "diagnosis_label" in transformed.columns or "label" in transformed.columns,
         }
 
-    internal_mask_files = [p for p in (root / "data" / "internal").rglob("imaging/masks/*") if p.is_file()]
-    external_mask_dirs = [p for p in (root / "data" / "external").rglob("masks") if p.is_dir()]
+    release_root = root / "data" / "deidentified_release_candidate"
+    internal_mask_files = [p for p in (release_root / "internal").rglob("imaging/masks/*") if p.is_file()]
+    external_mask_dirs = [p for p in (release_root / "external").rglob("masks") if p.is_dir()]
 
     fused = weighted_average_fusion(np.array([0.2, 0.8]), np.array([0.4, 0.6]), 0.70, 0.30)
     metric_summary = binary_metrics([0, 1], fused, threshold=0.50)

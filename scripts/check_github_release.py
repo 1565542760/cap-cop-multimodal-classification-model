@@ -189,7 +189,7 @@ def main() -> int:
             failures.append(f"missing paper-facing fusion alias: {paper_name}")
 
     external_masks = [
-        path for path in (PROJECT_ROOT / "data" / "external").rglob("masks") if path.is_dir()
+        path for path in (PROJECT_ROOT / "data" / "deidentified_release_candidate" / "external").rglob("masks") if path.is_dir()
     ]
     if external_masks:
         failures.extend(f"external mask directory present: {path.relative_to(PROJECT_ROOT)}" for path in external_masks)

@@ -18,7 +18,7 @@ from scipy import ndimage
 import run_imaging_final_96cubed_tensor_contract_v2 as base
 
 
-ROOT = Path(os.environ.get("CAP_COP_PRIVATE_EXPERIMENT_V2_ROOT", Path(__file__).resolve().parents[5] / "experiment_v2"))
+ROOT = Path(os.environ.get("CAP_COP_PRIVATE_EXPERIMENT_V2_ROOT", Path(__file__).resolve().parents[4] / "experiment_v2"))
 BASE = ROOT / "imaging_final_96cubed_tensor_contract_v2"
 OUT_TENSOR = BASE / "final_locked_p95_tensors"
 LOCK_DIR = BASE / "locked_contract"

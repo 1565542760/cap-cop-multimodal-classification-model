@@ -21,6 +21,7 @@ from cap_cop.clinical import clinical_transportability_protocol as protocol
 from cap_cop.clinical.full_structured_model import load_artifact, predict_proba
 from cap_cop.clinical.structural_missingness_model import load_locked_artifact
 from cap_cop.private_lock_selectors import get_selector
+from cap_cop.data.release_inputs import load_clinical_cohort
 
 
 DEFAULT_OUTPUT = PROJECT_ROOT / "outputs" / "full_reproduction_20261010" / "clinical"
@@ -32,14 +33,7 @@ def write_json(path: Path, value: dict[str, Any]) -> None:
 
 
 def load_cohort(cohort: str) -> pd.DataFrame:
-    frames = []
-    for diagnosis in ("CAP", "COP"):
-        path = PROJECT_ROOT / "data" / cohort / diagnosis / "clinical" / "clinical_features.csv"
-        frame = pd.read_csv(path)
-        if cohort == "internal":
-            frame["public_subject_id"] = frame["case_id_public"].astype(str)
-        frames.append(frame)
-    combined = pd.concat(frames, ignore_index=True)
+    combined = load_clinical_cohort(cohort, legacy_id_alias=True)
     expected = 375 if cohort == "internal" else 33
     if len(combined) != expected or combined["public_subject_id"].nunique() != expected:
         raise RuntimeError(f"Expected {expected} unique {cohort} subjects")

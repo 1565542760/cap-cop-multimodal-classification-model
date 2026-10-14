@@ -135,11 +135,8 @@ def load_components(
     root = component_root
     if model_name == "primary_lesion_radiomics":
         clinical_name = "full_structured"
-        lesion_root = (
-            root / "lesion_radiomics_locked_feature_replay"
-            if component_mode == "locked"
-            else root / "lesion_radiomics"
-        )
+        lesion_subdir = "lesion_radiomics_locked_feature_replay" if component_mode == "locked" else "lesion_radiomics"
+        lesion_root = root / lesion_subdir if (root / lesion_subdir).is_dir() else root
         if cohort == "internal":
             locked_path = (
                 PROJECT_ROOT / "models" / "lesion_radiomics" / "internal_oof_predictions.csv"
@@ -162,15 +159,20 @@ def load_components(
         file_name = "whole_chest_internal_oof_replay.csv" if cohort == "internal" else "whole_chest_external_replay.csv"
         id_column = "neutral_imaging_id" if cohort == "internal" else "neutral_external_id"
         probability_column = "prob_COP"
-        image = read_probability(root / "whole_chest_representations" / file_name, id_column, probability_column)
+        image = read_probability(find_component_file(root, "whole_chest_representations", file_name), id_column, probability_column)
         image = to_public(image, crosswalk, "whole_chest_imaging_model_id" if cohort == "internal" else "external_tensor_id")
     elif model_name == "stable_multirepresentation_comparator":
         clinical_name = "full_structured"
         suffix = "internal" if cohort == "internal" else "external"
         input_mode = "locked_tabular" if component_mode == "locked" else "regenerated_tabular"
-        replay_path = root / "whole_chest_representations" / f"stable_multirepresentation_{input_mode}_{suffix}_replay.csv"
-        if not replay_path.is_file():
-            replay_path = root / "whole_chest_representations" / f"stable_multirepresentation_{suffix}_replay.csv"
+        try:
+            replay_path = find_component_file(
+                root,
+                "whole_chest_representations",
+                f"stable_multirepresentation_{input_mode}_{suffix}_replay.csv",
+            )
+        except FileNotFoundError:
+            replay_path = find_component_file(root, "whole_chest_representations", f"stable_multirepresentation_{suffix}_replay.csv")
         frame = pd.read_csv(
             replay_path,
             encoding="utf-8-sig",
@@ -321,6 +323,9 @@ def main() -> int:
         default=None,
         help="Optional root containing the clinical replay files when the image replay root is separate.",
     )
+    parser.add_argument("--lesion-root", type=Path, default=None, help="Optional direct lesion-radiomics replay directory.")
+    parser.add_argument("--whole-chest-root", type=Path, default=None, help="Optional direct whole-chest replay directory.")
+    parser.add_argument("--exploratory-root", type=Path, default=None, help="Optional direct exploratory replay directory.")
     parser.add_argument(
         "--component-mode",
         choices=["regenerated", "locked"],
@@ -349,6 +354,15 @@ def main() -> int:
     clinical_root = (args.clinical_root or component_root).resolve()
     if not component_root.is_dir():
         raise FileNotFoundError(f"Component root does not exist: {component_root}")
+    model_roots = {
+        "primary_lesion_radiomics": (args.lesion_root or component_root).resolve(),
+        "whole_chest_ct_comparator": (args.whole_chest_root or component_root).resolve(),
+        "stable_multirepresentation_comparator": (args.whole_chest_root or component_root).resolve(),
+        "supplementary_exploratory_comparator": (args.exploratory_root or component_root).resolve(),
+    }
+    for model_root in model_roots.values():
+        if not model_root.is_dir():
+            raise FileNotFoundError(f"Component root does not exist: {model_root}")
     output_dir.mkdir(parents=True, exist_ok=True)
     threshold = float(config["threshold"])
     requested_models = args.models or list(PUBLIC_MODEL_ORDER)
@@ -379,7 +393,7 @@ def main() -> int:
                 threshold,
                 output_dir,
                 args.component_mode,
-                component_root,
+                model_roots[model_name],
                 clinical_root,
             )
             for cohort in ("internal", "external")

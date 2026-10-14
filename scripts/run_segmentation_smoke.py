@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -14,12 +15,16 @@ from cap_cop.imaging.segmentation.model import load_locked_checkpoint
 from cap_cop.imaging.segmentation.predict_external import predict_external_ensemble
 from cap_cop.imaging.segmentation.predict_internal import predict_internal_strict_oof
 from cap_cop.imaging.segmentation.splits import verify_all_strict_oof_folds
+from cap_cop.data.release_inputs import dicom_dir
 
 
 def main() -> None:
-    internal_dicom = PROJECT_ROOT / "data" / "internal" / "CAP" / "imaging" / "ct" / "CAP_0001" / "dicom"
-    external_dicom = PROJECT_ROOT / "data" / "external" / "CAP" / "imaging" / "ct" / "EXT_CAP_001" / "dicom"
-    out_root = PROJECT_ROOT / "outputs" / "segmentation_smoke"
+    parser = argparse.ArgumentParser(description="Run one internal and one external de-identified DICOM through segmentation.")
+    parser.add_argument("--output-dir", type=Path, default=PROJECT_ROOT / "outputs" / "segmentation_smoke")
+    args = parser.parse_args()
+    internal_dicom = dicom_dir("internal", "CAP", "CAP_0001")
+    external_dicom = dicom_dir("external", "CAP", "EXT_CAP_001")
+    out_root = args.output_dir.resolve()
 
     manifest = load_checkpoint_manifest()
     first_checkpoint = all_checkpoint_paths()[0]

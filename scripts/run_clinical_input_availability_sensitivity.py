@@ -29,6 +29,7 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 from cap_cop.clinical import full_structured_input_strategy_experiment as full_experiment
+from cap_cop.data.release_inputs import DATA_ROOT, load_clinical_cohort
 
 
 DEFAULT_CONFIG = PROJECT_ROOT / "configs" / "clinical_input_availability_scenarios.json"
@@ -61,14 +62,7 @@ def write_json(path: Path, value: dict[str, Any]) -> None:
 
 
 def load_cohort(cohort: str) -> pd.DataFrame:
-    frames = []
-    for diagnosis in ("CAP", "COP"):
-        path = PROJECT_ROOT / "data" / cohort / diagnosis / "clinical" / "clinical_features.csv"
-        frame = pd.read_csv(path)
-        if cohort == "internal":
-            frame["public_subject_id"] = frame["case_id_public"].astype(str)
-        frames.append(frame)
-    combined = pd.concat(frames, ignore_index=True)
+    combined = load_clinical_cohort(cohort)
     expected = 375 if cohort == "internal" else 33
     expected_positive = 125 if cohort == "internal" else 14
     if len(combined) != expected or combined["public_subject_id"].nunique() != expected:
@@ -295,10 +289,10 @@ def main() -> int:
             "script": {"path": str(script_path.relative_to(PROJECT_ROOT)), "sha256": sha256_file(script_path)},
             "internal_image_predictions": {"path": str(INTERNAL_IMAGE.relative_to(PROJECT_ROOT)), "sha256": sha256_file(INTERNAL_IMAGE)},
             "external_image_predictions": {"path": str(EXTERNAL_IMAGE.relative_to(PROJECT_ROOT)), "sha256": sha256_file(EXTERNAL_IMAGE)},
-            "internal_clinical_cap": {"path": "data/internal/CAP/clinical/clinical_features.csv", "sha256": sha256_file(PROJECT_ROOT / "data/internal/CAP/clinical/clinical_features.csv")},
-            "internal_clinical_cop": {"path": "data/internal/COP/clinical/clinical_features.csv", "sha256": sha256_file(PROJECT_ROOT / "data/internal/COP/clinical/clinical_features.csv")},
-            "external_clinical_cap": {"path": "data/external/CAP/clinical/clinical_features.csv", "sha256": sha256_file(PROJECT_ROOT / "data/external/CAP/clinical/clinical_features.csv")},
-            "external_clinical_cop": {"path": "data/external/COP/clinical/clinical_features.csv", "sha256": sha256_file(PROJECT_ROOT / "data/external/COP/clinical/clinical_features.csv")},
+            "internal_clinical_cap": {"path": "data/deidentified_release_candidate/internal/CAP/clinical/clinical_features.csv", "sha256": sha256_file(DATA_ROOT / "internal/CAP/clinical/clinical_features.csv")},
+            "internal_clinical_cop": {"path": "data/deidentified_release_candidate/internal/COP/clinical/clinical_features.csv", "sha256": sha256_file(DATA_ROOT / "internal/COP/clinical/clinical_features.csv")},
+            "external_clinical_cap": {"path": "data/deidentified_release_candidate/external/CAP/clinical/clinical_features.csv", "sha256": sha256_file(DATA_ROOT / "external/CAP/clinical/clinical_features.csv")},
+            "external_clinical_cop": {"path": "data/deidentified_release_candidate/external/COP/clinical/clinical_features.csv", "sha256": sha256_file(DATA_ROOT / "external/COP/clinical/clinical_features.csv")},
         },
         "external_labels": "read only after predictions for evaluation; not used for training, feature selection, threshold selection, or scenario selection",
         "threshold": 0.5,

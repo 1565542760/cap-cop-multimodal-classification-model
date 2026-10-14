@@ -26,20 +26,36 @@ def first_existing(columns: list[str], candidates: list[str]) -> str | None:
 
 
 def load_external_labels(root: Path) -> pd.DataFrame:
-    rows: list[dict[str, object]] = []
+    crosswalk = pd.read_csv(root / "data" / "public_subject_model_crosswalk.csv", dtype=str)
+    crosswalk = crosswalk[crosswalk["cohort"].eq("external")].copy()
+    if len(crosswalk) != 33 or crosswalk["public_subject_id"].duplicated().any():
+        raise ValueError("Expected 33 unique external public IDs in the crosswalk")
+    if crosswalk["segmentation_model_id"].isna().any() or crosswalk["segmentation_model_id"].duplicated().any():
+        raise ValueError("External imaging prediction IDs must be present and unique")
+    rows: list[pd.DataFrame] = []
     for cohort, label in (("CAP", 0), ("COP", 1)):
-        manifest = pd.read_csv(root / "data" / "external" / cohort / "manifest.csv")
-        for public_subject_id in manifest["public_subject_id"].astype(str):
-            rows.append(
-                {
-                    "public_subject_id": public_subject_id,
-                    "cohort": cohort,
-                    "label": label,
-                }
-            )
-    labels = pd.DataFrame(rows)
-    labels["prediction_id"] = [f"external_patient_{i:04d}" for i in range(1, len(labels) + 1)]
-    return labels
+        manifest = pd.read_csv(
+            root / "data" / "deidentified_release_candidate" / "external" / cohort / "manifest.csv",
+            dtype=str,
+        )
+        if len(manifest) != (19 if cohort == "CAP" else 14) or manifest["public_subject_id"].duplicated().any():
+            raise ValueError(f"Unexpected external {cohort} manifest IDs")
+        manifest = manifest[["public_subject_id", "label_binary"]].copy()
+        if not manifest["label_binary"].eq(str(label)).all():
+            raise ValueError(f"External {cohort} label mismatch")
+        manifest["cohort"] = cohort
+        rows.append(manifest)
+    labels = pd.concat(rows, ignore_index=True)
+    labels = labels.merge(
+        crosswalk[["public_subject_id", "segmentation_model_id"]],
+        on="public_subject_id",
+        how="left",
+        validate="one_to_one",
+    )
+    if labels["segmentation_model_id"].isna().any() or set(labels["public_subject_id"]) != set(crosswalk["public_subject_id"]):
+        raise ValueError("External manifest/crosswalk IDs do not match")
+    labels["label"] = labels["label_binary"].astype(int)
+    return labels.rename(columns={"segmentation_model_id": "prediction_id"}).drop(columns="label_binary")
 
 
 def load_predictions(path: Path, labels: pd.DataFrame) -> pd.DataFrame:
@@ -194,7 +210,7 @@ def dicom_summary(root: Path, labels: pd.DataFrame) -> pd.DataFrame:
     for _, item in labels.iterrows():
         cohort = str(item["cohort"])
         subject = str(item["public_subject_id"])
-        path = root / "data" / "external" / cohort / "imaging" / "ct" / subject / "dicom"
+        path = root / "data" / "deidentified_release_candidate" / "external" / cohort / "imaging" / "ct" / subject / "dicom"
         row = {"cohort": cohort, "public_subject_id": subject, "ct_path": str(path)}
         row.update(read_dicom_metadata(path))
         rows.append(row)
@@ -206,7 +222,7 @@ def segmentation_qc(root: Path, labels: pd.DataFrame) -> pd.DataFrame:
     for _, item in labels.iterrows():
         cohort = str(item["cohort"])
         subject = str(item["public_subject_id"])
-        manifest = pd.read_csv(root / "data" / "external" / cohort / "manifest.csv")
+        manifest = pd.read_csv(root / "data" / "deidentified_release_candidate" / "external" / cohort / "manifest.csv")
         record = manifest.loc[manifest["public_subject_id"].astype(str) == subject].iloc[0]
         mask_path = record.get("mask_path", "")
         mask_present = pd.notna(mask_path) and str(mask_path).strip().lower() not in {"", "nan", "none"}
@@ -244,8 +260,16 @@ def radiomics_shift(root: Path, labels: pd.DataFrame) -> pd.DataFrame:
                 internal_label = "_linked_label"
     if internal_label is None:
         return pd.DataFrame([{"status": "internal_feature_labels_missing"}])
-    external = external.copy()
-    external["label"] = labels["label"].to_numpy()
+    if "neutral_patient_id" not in external.columns or external["neutral_patient_id"].duplicated().any():
+        return pd.DataFrame([{"status": "external_feature_id_missing_or_duplicate"}])
+    external = external.merge(
+        labels[["prediction_id", "label"]].rename(columns={"prediction_id": "neutral_patient_id"}),
+        on="neutral_patient_id",
+        how="left",
+        validate="one_to_one",
+    )
+    if external["label"].isna().any() or len(external) != len(labels):
+        return pd.DataFrame([{"status": "external_feature_label_mapping_mismatch"}])
     excluded = {"label", "label_binary", "y", "patient_id", "neutral_patient_id", "public_subject_id"}
     features = [
         name

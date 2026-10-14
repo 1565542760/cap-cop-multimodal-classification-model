@@ -18,11 +18,6 @@ The repository includes the following model workflows:
   clinical information fused with a stable multi-representation CT branch.
 - **Supplementary Exploratory Multimodal Comparator**: an exploratory
   clinical--imaging comparator reported separately from the main workflows.
-- **Clinical Input Availability Sensitivity**: fixed lesion-ROI radiomics
-  probabilities with predefined clinical-input availability scenarios,
-  including full clinical input, core clinical input, feature-specific
-  unavailability, inflammatory laboratory-panel unavailability, and
-  external-pattern missingness.
 
 The lesion-ROI workflow is:
 
@@ -140,7 +135,6 @@ scripts/run_full_cohort_lesion_segmentation.py
 scripts/run_full_cohort_lesion_radiomics.py
 scripts/run_full_cohort_whole_chest_representations.py
 scripts/run_full_cohort_multimodal_replay.py
-scripts/run_clinical_input_availability_sensitivity.py
 ```
 
 Inspect the available arguments before running a workflow:
@@ -150,31 +144,10 @@ python .\scripts\run_full_cohort_lesion_segmentation.py --help
 python .\scripts\run_full_cohort_lesion_radiomics.py --help
 python .\scripts\run_full_cohort_whole_chest_representations.py --help
 python .\scripts\run_full_cohort_multimodal_replay.py --help
-python .\scripts\run_clinical_input_availability_sensitivity.py --help
 ```
 
-### 5. Clinical-input availability scenarios
-
-The clinical-input sensitivity workflow is configured in:
-
-```text
-configs/clinical_input_availability_scenarios.json
-```
-
-Run it with:
-
-```powershell
-python .\scripts\run_clinical_input_availability_sensitivity.py `
-  --config .\configs\clinical_input_availability_scenarios.json `
-  --output-dir .\outputs\clinical_input_availability_sensitivity
-```
-
-The workflow keeps the lesion-ROI imaging probabilities fixed and evaluates
-the configured clinical-input scenarios using the same preprocessing,
-cross-validation, fusion, and threshold settings defined in the configuration.
-
-### 6. Outputs
+### 5. Outputs
 
 Workflow outputs are written to the selected output directory. The evaluation
-outputs contain patient-level probabilities, classification metrics, scenario
-registries, and run metadata for the corresponding workflow.
+outputs contain patient-level probabilities, classification metrics, and run
+metadata for the corresponding workflow.

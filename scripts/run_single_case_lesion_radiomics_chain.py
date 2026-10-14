@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -19,6 +20,7 @@ from cap_cop.imaging.segmentation.preprocess import (
     read_primary_dicom_series,
     resample_hu_image_to_working_spacing,
 )
+from cap_cop.data.release_inputs import dicom_dir
 def mask_image_from_npy(mask_path: Path, reference: sitk.Image) -> sitk.Image:
     mask = np.load(mask_path).astype(np.uint8)
     image_shape_zyx = tuple(sitk.GetArrayFromImage(reference).shape)
@@ -30,16 +32,20 @@ def mask_image_from_npy(mask_path: Path, reference: sitk.Image) -> sitk.Image:
 
 
 def main() -> None:
-    dicom_dir = PROJECT_ROOT / "data" / "internal" / "CAP" / "imaging" / "ct" / "CAP_0001" / "dicom"
-    mask_path = PROJECT_ROOT / "outputs" / "segmentation_smoke" / "internal" / "CAP_0001_strict_oof_predicted_mask.npy"
-    out_dir = PROJECT_ROOT / "outputs" / "lesion_radiomics_single_case"
+    parser = argparse.ArgumentParser(description="Run de-identified DICOM and a predicted lesion mask through PyRadiomics and the locked RF.")
+    parser.add_argument("--mask-path", type=Path, default=PROJECT_ROOT / "outputs" / "segmentation_smoke" / "internal" / "CAP_0001_strict_oof_predicted_mask.npy")
+    parser.add_argument("--output-dir", type=Path, default=PROJECT_ROOT / "outputs" / "lesion_radiomics_single_case")
+    args = parser.parse_args()
+    case_dicom_dir = dicom_dir("internal", "CAP", "CAP_0001")
+    mask_path = args.mask_path.resolve()
+    out_dir = args.output_dir.resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
 
     model_artifact = joblib.load(PROJECT_ROOT / "models" / "lesion_radiomics" / "final_random_forest.joblib")
     pipeline = model_artifact["pipeline"]
     features = list(model_artifact["features"])
 
-    image, _series_id, _files = read_primary_dicom_series(dicom_dir)
+    image, _series_id, _files = read_primary_dicom_series(case_dicom_dir)
     image_2mm = resample_hu_image_to_working_spacing(image)
     mask_img = mask_image_from_npy(mask_path, image_2mm)
 

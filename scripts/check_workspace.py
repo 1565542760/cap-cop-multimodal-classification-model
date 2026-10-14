@@ -25,7 +25,7 @@ def main() -> None:
         ],
         "external_masks_dirs_present": [
             str(path.relative_to(root))
-            for path in (root / "data" / "external").rglob("masks")
+            for path in (root / "data" / "deidentified_release_candidate" / "external").rglob("masks")
             if path.is_dir()
         ],
     }

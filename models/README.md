@@ -1,18 +1,15 @@
-# Governed model artifacts
+# Model Artifacts
 
-The local `models/` tree contains controlled workflow artifacts, checkpoints,
-patient-level prediction tables, ID manifests, and lock evidence used for local
-validation. It is intentionally excluded from the public Git repository.
+Runtime model artifacts are supplied separately from the source code and are
+ignored by Git. Place authorised artifacts under these relative directories:
 
-The public code expects authorized users to provide the required model artifacts
-under this relative directory, or to use an approved artifact registry. Do not
-commit checkpoints, patient-level predictions, clinical labels, ID crosswalks,
-absolute source paths, or private experiment manifests. The semantic contracts
-and model roles are documented in `configs/models.json` and `docs/`; the private
-historical pair selectors are kept separately in the ignored local configuration.
+```text
+models/clinical/
+models/imaging/
+models/segmentation/
+models/multimodal_fusion/
+```
 
-The public repository does not claim that a clone without this governed bundle can
-produce the patient-level paper numbers. A clean clone can run the dependency and semantic
-smoke tests; the complete workflow requires the authorized bundle at these relative roots:
-`models/clinical/`, `models/imaging/`, `models/segmentation/`,
-`models/multimodal_fusion/`, and the corresponding ignored `data/` manifests and inputs.
+Do not commit checkpoints, patient-level predictions, clinical labels, identity
+crosswalks or local data. The configuration files describe the expected model
+interfaces and input contracts.

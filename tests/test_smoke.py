@@ -7,7 +7,8 @@ import numpy as np
 import pandas as pd
 
 from cap_cop.config import load_model_configs
-from cap_cop.data.manifest import id_set_digest, read_manifest
+from cap_cop.data.manifest import cohort_manifest_paths, id_set_digest, read_manifest
+from cap_cop.data import release_inputs
 from cap_cop.data.public_identity import read_public_crosswalk
 from cap_cop.evaluation.metrics import binary_metrics
 from cap_cop.models.multimodal.fusion import classify, weighted_average_fusion
@@ -152,6 +153,56 @@ def test_manifest_validation_and_digest(tmp_path):
     frame = read_manifest(manifest)
     assert frame.shape == (2, 3)
     assert id_set_digest(frame["public_subject_id"].tolist()) == id_set_digest(["P001", "P002"])
+
+
+def test_runtime_manifest_paths_use_only_deidentified_data(tmp_path):
+    paths = cohort_manifest_paths(tmp_path)
+    assert len(paths) == 4
+    assert all("deidentified_release_candidate" in path.parts for path in paths)
+
+
+def test_runtime_entrypoints_do_not_reference_source_cohort_trees():
+    root = project_root()
+    entrypoints = [
+        "scripts/run_full_cohort_clinical_replay.py",
+        "scripts/run_clinical_input_availability_sensitivity.py",
+        "scripts/run_reproducibility_smoke.py",
+        "scripts/run_segmentation_smoke.py",
+        "scripts/run_single_case_lesion_radiomics_chain.py",
+        "scripts/run_supplementary_exploratory_subset_replay.py",
+        "src/cap_cop/imaging/whole_chest_tensor/generate_whole_chest_tensor.py",
+    ]
+    for name in entrypoints:
+        source = (root / name).read_text(encoding="utf-8").replace("\\", "/")
+        assert '"data" / "internal"' not in source, name
+        assert '"data" / "external"' not in source, name
+        assert "D:/3D_CT" not in source, name
+
+
+def test_release_clinical_contract_and_legacy_alias(tmp_path, monkeypatch):
+    monkeypatch.setattr(release_inputs, "DATA_ROOT", tmp_path)
+    monkeypatch.setattr(
+        release_inputs,
+        "EXPECTED_COUNTS",
+        {(cohort, diagnosis): 2 for cohort in ("internal", "external") for diagnosis in ("CAP", "COP")},
+    )
+    for cohort in ("internal", "external"):
+        for diagnosis, label in (("CAP", 0), ("COP", 1)):
+            root = tmp_path / cohort / diagnosis
+            (root / "clinical").mkdir(parents=True)
+            ids = [f"{cohort}_{diagnosis}_{index}" for index in (1, 2)]
+            frame = pd.DataFrame({name: [1, 2] for name in release_inputs.clinical_features()})
+            frame.insert(0, "public_subject_id", ids)
+            frame["label_binary"] = label
+            frame.to_csv(root / "clinical" / "clinical_features.csv", index=False)
+            frame[["public_subject_id", "label_binary"]].to_csv(root / "manifest.csv", index=False)
+    internal = release_inputs.load_clinical_cohort("internal", legacy_id_alias=True)
+    external = release_inputs.load_clinical_cohort("external")
+    assert len(internal) == len(external) == 4
+    assert internal["case_id_public"].equals(internal["public_subject_id"])
+    assert "case_id_public" not in external.columns
+    assert internal["label_binary"].tolist() == [0, 0, 1, 1]
+    assert release_inputs.dicom_dir("internal", "CAP", "internal_CAP_1").is_relative_to(tmp_path)
 
 
 def test_fusion_and_metrics_interfaces():
