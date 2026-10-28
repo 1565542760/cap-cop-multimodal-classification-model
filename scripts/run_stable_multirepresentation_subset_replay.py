@@ -119,12 +119,15 @@ def main() -> int:
     parser.add_argument("--locked-external-id", required=True)
     parser.add_argument("--output-dir", required=True)
     parser.add_argument("--device", default="cuda")
+    parser.add_argument("--cohort-metadata", type=Path, help="Patient/label/fold/domain CSV without probability columns.")
     args = parser.parse_args()
 
     project_root = Path(args.project_root).resolve()
     output_dir = Path(args.output_dir).resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     patch_stable_paths(project_root, output_dir)
+    if args.cohort_metadata is not None:
+        stable.PATHS["cohort_metadata"] = args.cohort_metadata.resolve()
 
     tensor_qc = materialize_subject(project_root, args.subject_id, output_dir / "p95_tensor")
     tensor_path = Path(tensor_qc["tensor_path"])
@@ -152,7 +155,6 @@ def main() -> int:
     tangerine_ext[ext_index : ext_index + 1] = tangerine_embedding
 
     base, ext_xw2, domains = stable.load_base()
-    ext_labels = stable.load_external_labels(ext_xw2)
     tab_i, tab_e, tab_f, _ = stable.load_tabular_features(base, ext_xw2)
     emb_mi = {
         "FAMILY_C_GENESIS_FROZEN": base.copy(),

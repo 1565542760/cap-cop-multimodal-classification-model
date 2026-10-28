@@ -159,7 +159,7 @@ def replay_representations(contract: pd.DataFrame, output_dir: Path, device: tor
         )
         if index % 5 == 0 or index == len(contract):
             pd.DataFrame(rows).to_csv(output_dir / "whole_chest_representation_replay_manifest.csv", index=False, encoding="utf-8-sig")
-            print(f"whole-chest representations {index}/{len(contract)} last={subject_id}", flush=True)
+            print(f"whole-chest representations {index}/{len(contract)}", flush=True)
 
     write_json(
         output_dir / "encoder_provenance.json",
@@ -262,8 +262,16 @@ def replay_stable_multirepresentation(
     use_regenerated_tabular_inputs: bool,
     phenotype_path: Path | None = None,
     radiomics_path: Path | None = None,
+    capture_fit_artifacts: bool = False,
 ) -> dict[str, Any]:
     mode = "regenerated_tabular" if use_regenerated_tabular_inputs else "locked_tabular"
+    if capture_fit_artifacts and (
+        (output_dir / f"stable_multirepresentation_{mode}_internal_replay.csv").exists()
+        or (output_dir / f"stable_multirepresentation_{mode}_external_replay.csv").exists()
+        or (output_dir / "stable_fit_artifacts").exists()
+        or (output_dir / f"stable_runtime_{mode}").exists()
+    ):
+        raise RuntimeError("Refusing to overwrite an existing stable model run")
     stable_output = output_dir / f"stable_runtime_{mode}"
     patch_stable_paths(PROJECT_ROOT, stable_output)
     model_dir = PROJECT_ROOT / "models" / "stable_multirepresentation_ct"
@@ -314,7 +322,6 @@ def replay_stable_multirepresentation(
         if missing:
             raise RuntimeError(f"C locked-input replay is missing public locked inputs: {missing}")
     base, external_crosswalk, domains = stable.load_base()
-    stable.load_external_labels(external_crosswalk)
     tabular_internal, tabular_external, tabular_features, _ = stable.load_tabular_features(base, external_crosswalk)
 
     if use_regenerated_tabular_inputs:
@@ -358,6 +365,7 @@ def replay_stable_multirepresentation(
         embedding_manifest_external,
         embedding_internal,
         embedding_external,
+        audit_dir=output_dir / "stable_fit_artifacts" if capture_fit_artifacts else None,
     )
     oof, external_long, _ = stable.add_equal_ensemble(oof, external_long)
     external_mean = external_long.groupby(["neutral_external_id", "neutral_patient_id", "candidate"], as_index=False)["prob_COP_fold"].mean().rename(columns={"prob_COP_fold": "prob_COP_mean"})
@@ -414,12 +422,19 @@ def main() -> int:
     parser.add_argument("--segmentation-audit", type=Path, default=DEFAULT_SEGMENTATION_AUDIT)
     parser.add_argument("--phenotype-features", type=Path)
     parser.add_argument("--radiomics-features", type=Path)
+    parser.add_argument("--cohort-metadata", type=Path, help="Patient/label/fold/domain CSV without prediction columns; preserves locked folds.")
+    parser.add_argument("--capture-fit-artifacts", action="store_true",
+                        help="Save per-fold matrices, transforms and fitted models in the ignored output directory")
     parser.add_argument(
         "--phase",
         choices=["representations", "whole_chest_model", "stable_model", "stable_locked_inputs", "models", "all"],
         default="all",
     )
     args = parser.parse_args()
+    if args.capture_fit_artifacts and args.phase not in {"stable_model", "stable_locked_inputs"}:
+        parser.error("--capture-fit-artifacts requires --phase stable_model or stable_locked_inputs")
+    if args.cohort_metadata is not None:
+        stable.PATHS["cohort_metadata"] = args.cohort_metadata.resolve()
     output_dir = args.output_dir.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     contract = input_contract(
@@ -441,12 +456,14 @@ def main() -> int:
                 use_regenerated_tabular_inputs=True,
                 phenotype_path=args.phenotype_features.resolve() if args.phenotype_features else None,
                 radiomics_path=args.radiomics_features.resolve() if args.radiomics_features else None,
+                capture_fit_artifacts=args.capture_fit_artifacts,
             )
         if args.phase == "stable_locked_inputs":
             summary["stable_multirepresentation"] = replay_stable_multirepresentation(
                 contract,
                 output_dir,
                 use_regenerated_tabular_inputs=False,
+                capture_fit_artifacts=args.capture_fit_artifacts,
             )
         write_json(summary_path, summary)
         print(json.dumps(summary, indent=2, ensure_ascii=False))

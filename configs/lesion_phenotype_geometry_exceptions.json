@@ -1,6 +1,0 @@
-{
-  "per_slice_dicom_physical_geometry_subjects": [
-    "CAP_0119"
-  ],
-  "source_contract": "Locked internal ROI manifest marks this subject as a multi-substack geometry remediation case."
-}

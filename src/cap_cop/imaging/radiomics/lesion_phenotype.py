@@ -11,13 +11,8 @@ from pathlib import Path
 from typing import Any
 
 import joblib
-import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import torch
 from scipy import ndimage
 from scipy.special import expit
 from sklearn.ensemble import RandomForestClassifier
@@ -829,6 +824,8 @@ def extract_embeddings_for_fold(
     train_context: pd.DataFrame,
     strict_context: pd.DataFrame,
 ) -> pd.DataFrame:
+    import torch
+
     short = "RESNET" if backbone.startswith("ResNet") else "DENSENET"
     csv_path = DIRS["embeddings"] / f"{short}_OUTER{outer:02d}_PATIENT_EMBEDDINGS.csv"
     npy_path = DIRS["embeddings"] / f"{short}_OUTER{outer:02d}_PATIENT_EMBEDDINGS.npy"
@@ -1064,6 +1061,11 @@ def coefficient_stability(coef_df: pd.DataFrame) -> pd.DataFrame:
 
 
 def make_figures(metrics: pd.DataFrame, roc_df: pd.DataFrame, pr_df: pd.DataFrame, fold_df: pd.DataFrame, coef_stability: pd.DataFrame, oof: pd.DataFrame) -> None:
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
     plt.figure(figsize=(7, 6))
     for model, g in roc_df.groupby("model"):
         auc = metrics.set_index("model").loc[model, "AUROC"]

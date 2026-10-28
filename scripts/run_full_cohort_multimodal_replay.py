@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -13,7 +14,10 @@ from sklearn.metrics import accuracy_score, f1_score, recall_score, roc_auc_scor
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CONFIG = PROJECT_ROOT / "configs" / "paper_model_locked_pairs.json"
-DEFAULT_PRIVATE_LOCK_MAP = PROJECT_ROOT / "configs" / "private_locked_pair_ids.json"
+sys.path.insert(0, str(PROJECT_ROOT / "src"))
+from cap_cop.private_lock_selectors import load_selectors
+
+DEFAULT_SELECTOR_MAP = PROJECT_ROOT / "configs" / "artifact_selectors.json"
 DEFAULT_OUTPUT = PROJECT_ROOT / "outputs" / "full_reproduction_20261010" / "multimodal"
 CROSSWALK = PROJECT_ROOT / "data" / "public_subject_model_crosswalk.csv"
 INTERNAL_LOCK = PROJECT_ROOT / "models" / "multimodal_fusion" / "internal_oof_all_pairs_predictions.csv"
@@ -305,10 +309,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Replay the four paper multimodal models from full-cohort component outputs.")
     parser.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     parser.add_argument(
-        "--private-lock-map",
+        "--selector-map", "--private-lock-map",
+        dest="selector_map",
         type=Path,
-        default=DEFAULT_PRIVATE_LOCK_MAP,
-        help="Local governed mapping from semantic model names to historical lock selectors; never publish this file.",
+        default=DEFAULT_SELECTOR_MAP,
+        help="Mapping from semantic model names to model-artifact identifiers (no patient data).",
     )
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument(
@@ -340,13 +345,7 @@ def main() -> int:
     )
     args = parser.parse_args()
     config = json.loads(args.config.resolve().read_text(encoding="utf-8"))
-    private_lock_map_path = args.private_lock_map.resolve()
-    if not private_lock_map_path.is_file():
-        raise FileNotFoundError(
-            "Historical lock comparison requires a governed private lock map: "
-            f"{private_lock_map_path}"
-        )
-    private_lock_map = json.loads(private_lock_map_path.read_text(encoding="utf-8"))
+    private_lock_map = load_selectors(args.selector_map.resolve())
     crosswalk = pd.read_csv(CROSSWALK, encoding="utf-8-sig")
     validate_canonical_crosswalk(crosswalk)
     output_dir = args.output_dir.resolve()

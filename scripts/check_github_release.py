@@ -62,8 +62,6 @@ FORBIDDEN_PUBLIC_PATH = re.compile(
 )
 REQUIRED_DOCS = (
     PROJECT_ROOT / "README.md",
-    PROJECT_ROOT / "docs" / "github_release_gate_20261011.md",
-    PROJECT_ROOT / "docs" / "replay_acceptance_20261011.md",
 )
 INTERNAL_IDENTIFIER_IN_NAME = re.compile(
     r"(?i)(?:^|[/\\])(?:C0[1-5]|I(?:08|14|21|23)|V3[._-](?:5|6|8|13)|SP[67])(?:[/\\]|[._-]|$)"
@@ -71,6 +69,38 @@ INTERNAL_IDENTIFIER_IN_NAME = re.compile(
 MODEL_ROOT = PROJECT_ROOT / "models"
 MINIMAL_ENTRYPOINT = PROJECT_ROOT / "scripts" / "run_minimal_reproduction.ps1"
 ARTIFACT_PREFLIGHT = PROJECT_ROOT / "scripts" / "check_authorized_artifact_bundle.py"
+REQUIRED_TRACKED_CODE = (
+    "configs/artifact_selectors.json",
+    "scripts/run_supplementary_exploratory_subset_replay.py",
+    "scripts/run_full_cohort_stable_multirepresentation.py",
+    "scripts/source_archive_provenance.py",
+    "src/cap_cop/data/model_contracts.py",
+    "src/cap_cop/imaging/radiomics/mask_contract.py",
+    "tests/test_model_c_identity.py",
+    "tests/test_release_contracts.py",
+    "tests/test_lesion_phenotype_mask_contract.py",
+    "tests/test_source_archive_provenance.py",
+)
+
+
+def check_git_source_closure() -> list[str]:
+    if not (PROJECT_ROOT / ".git").exists():
+        return ["Git metadata is absent; verify the exported SOURCE_MANIFEST.json separately"]
+    failures = []
+    for relative in REQUIRED_TRACKED_CODE:
+        result = subprocess.run(
+            ["git", "-C", str(PROJECT_ROOT), "ls-files", "--error-unmatch", "--", relative],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False,
+        )
+        if result.returncode:
+            failures.append(f"required public code is not Git-tracked: {relative}")
+    status = subprocess.run(
+        ["git", "-C", str(PROJECT_ROOT), "status", "--porcelain=v1", "--untracked-files=normal"],
+        capture_output=True, text=True, check=False,
+    )
+    if status.returncode or status.stdout.strip():
+        failures.append("worktree differs from public Git HEAD; release revision is not frozen")
+    return failures
 
 
 def check_runtime_paths() -> list[str]:
@@ -149,6 +179,7 @@ def check_public_semantic_names() -> list[str]:
 
 def main() -> int:
     failures: list[str] = []
+    failures.extend(check_git_source_closure())
     configs = load_model_configs()
     if len(configs) != 9:
         failures.append(f"expected 9 semantic model configs, found {len(configs)}")
@@ -168,8 +199,11 @@ def main() -> int:
         failures.append("missing minimal reproduction entrypoint")
     else:
         minimal_text = MINIMAL_ENTRYPOINT.read_text(encoding="utf-8", errors="ignore")
-        if ".venv_py39_radiomics" in minimal_text or ".venv\\Scripts\\python.exe" in minimal_text:
+        if ".venv_py39_radiomics" in minimal_text:
             failures.append("minimal reproduction entrypoint references an obsolete environment")
+        for environment in ("ToolPython", "ImagingPython", "RadiomicsPython"):
+            if environment not in minimal_text:
+                failures.append(f"minimal reproduction entrypoint lacks {environment}")
         if "Invoke-CheckedPython" not in minimal_text:
             failures.append("minimal reproduction entrypoint does not check native Python exit codes")
 

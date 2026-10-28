@@ -15,6 +15,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+import joblib
 from scipy.stats import spearmanr
 from sklearn.decomposition import PCA
 from sklearn.ensemble import RandomForestClassifier
@@ -28,6 +29,12 @@ from sklearn.metrics import (
 )
 from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import RobustScaler, StandardScaler
+from cap_cop.data.model_contracts import (
+    align_stable_patient_features,
+    read_stable_cohort_metadata,
+    require_unique_ids,
+    stable_patient_contract,
+)
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -119,6 +126,42 @@ def sha256_file(path: Path) -> str:
     return h.hexdigest()
 
 
+def record_candidate_inputs(artifact_dir: Path | None, train: pd.DataFrame,
+                            test: pd.DataFrame, external: pd.DataFrame,
+                            xtr: np.ndarray, xte: np.ndarray, xext: np.ndarray) -> None:
+    if artifact_dir is None:
+        return
+    artifact_dir.mkdir(parents=True, exist_ok=False)
+    for name, frame in (("train", train), ("held_out", test), ("external", external)):
+        frame.to_csv(artifact_dir / f"{name}_selected_raw.csv", index=False)
+    for name, array in (("train", xtr), ("held_out", xte), ("external", xext)):
+        np.save(artifact_dir / f"{name}_model_matrix.npy", array, allow_pickle=False)
+
+
+def record_fitted_candidate(artifact_dir: Path | None, train: pd.DataFrame,
+                            test: pd.DataFrame, external: pd.DataFrame,
+                            selected: list[str], xtr: np.ndarray, xte: np.ndarray,
+                            xext: np.ndarray, imputer: SimpleImputer,
+                            scaler: RobustScaler, model: Any,
+                            params: dict[str, Any]) -> None:
+    if artifact_dir is None:
+        return
+    if not artifact_dir.exists():
+        record_candidate_inputs(artifact_dir, train, test, external, xtr, xte, xext)
+    if (artifact_dir / "artifact_manifest.json").exists():
+        raise FileExistsError("Fitted candidate artifact already exists")
+    for name, value in (("imputer", imputer), ("scaler", scaler), ("model", model)):
+        joblib.dump(value, artifact_dir / f"{name}.joblib")
+    payload = {
+        "selected_features": selected,
+        "selected_params": params,
+        "rows": {"train": len(train), "held_out": len(test), "external": len(external)},
+        "files_sha256": {p.name: sha256_file(p) for p in sorted(artifact_dir.iterdir()) if p.is_file()},
+    }
+    (artifact_dir / "artifact_manifest.json").write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
 def write_sha(path: Path) -> None:
     write_text(path.with_name(path.name + "_SHA256.txt"), f"{sha256_file(path)}  {path.name}\n")
 
@@ -204,15 +247,11 @@ def read_csv(path: Path) -> pd.DataFrame:
 
 
 def load_base() -> tuple[pd.DataFrame, pd.DataFrame, list[str]]:
-    oof = read_csv(PATHS["internal_oof_ref"])
-    base = (
-        oof[oof["candidate"].eq("R0_GENESIS_B2_BASELINE")]
-        [["neutral_imaging_id", "label", "fold_or_domain", "primary_domain"]]
-        .drop_duplicates("neutral_imaging_id")
-        .rename(columns={"fold_or_domain": "outer_fold"})
+    metadata = PATHS.get("cohort_metadata")
+    base = read_stable_cohort_metadata(
+        metadata if metadata is not None else PATHS["internal_oof_ref"],
+        legacy=metadata is None,
     )
-    base["outer_fold"] = base["outer_fold"].astype(int)
-    base["label"] = base["label"].astype(int)
     with PATHS["domain_lock"].open("r", encoding="utf-8") as f:
         lock = json.load(f)
     domains = list(lock["lodo_evaluable_domains"])
@@ -245,31 +284,46 @@ def load_tabular_features(base: pd.DataFrame, ext_xw: pd.DataFrame) -> tuple[dic
     external: dict[str, pd.DataFrame] = {}
     feats: dict[str, list[str]] = {}
 
+    crosswalk = read_csv(PATHS["internal_crosswalk"])
+    base_identity, external_identity = stable_patient_contract(base, ext_xw, crosswalk)
     lesion = read_csv(PATHS["lesion_features"])
-    a_feats = numeric_cols(lesion, {"neutral_patient_id", "source_neutral_imaging_id", "neutral_external_id", "site", "group", "label_binary"})
-    li = lesion[lesion["site"].eq("Internal")].copy()
-    li = base.merge(li, left_on="neutral_imaging_id", right_on="source_neutral_imaging_id", how="left")
-    le = lesion[lesion["site"].eq("External")].copy()
-    if "neutral_external_id" in le.columns:
-        le = le.drop(columns=["neutral_external_id"])
-    le = ext_xw.merge(le, on="neutral_patient_id", how="left")
-    internal["FAMILY_A_HANDCRAFTED"] = li[["neutral_imaging_id", "label", "outer_fold", "primary_domain"] + a_feats]
-    external["FAMILY_A_HANDCRAFTED"] = le[["neutral_external_id", "neutral_patient_id"] + a_feats]
+    a_feats = numeric_cols(lesion, {"public_subject_id", "neutral_patient_id", "source_neutral_imaging_id",
+                                    "neutral_external_id", "site", "group", "label_binary", "outer_fold"})
+    li = align_stable_patient_features(base_identity, lesion.loc[lesion["site"].eq("Internal")].copy(),
+                                       a_feats, cohort="internal", check_lesion_id=True)
+    external_lesion = lesion.loc[lesion["site"].eq("External")].copy()
+    external_lesion_source = external_lesion["source_neutral_imaging_id"].fillna("").astype(str).str.strip().ne("")
+    if external_lesion_source.any() and not external_lesion_source.all():
+        raise ValueError("External phenotype has a partially missing source imaging ID")
+    le = align_stable_patient_features(external_identity, external_lesion, a_feats,
+                                       cohort="external", check_external_tensor=True,
+                                       check_lesion_id=bool(external_lesion_source.all()))
+    internal["FAMILY_A_HANDCRAFTED"] = li[["public_subject_id", "neutral_imaging_id", "label", "outer_fold", "primary_domain"] + a_feats]
+    external["FAMILY_A_HANDCRAFTED"] = le[["public_subject_id", "neutral_external_id", "neutral_patient_id"] + a_feats]
     feats["FAMILY_A_HANDCRAFTED"] = a_feats
     audit.append({"resource": "FAMILY_A_HANDCRAFTED", "path": str(PATHS["lesion_features"]), "available": True, "internal_rows": len(li), "external_rows": len(le), "feature_count": len(a_feats), "status": "EXECUTABLE"})
 
     d1i = read_csv(PATHS["d1_internal_features"])
     d1e = read_csv(PATHS["d1_external_features"])
     d1_list = read_csv(PATHS["d1_feature_list"])["feature"].astype(str).tolist()
-    d1_feats = [f for f in d1_list if f in d1i.columns and f in d1e.columns]
-    d1i = d1i.drop(columns=[c for c in ["outer_fold", "label", "label_binary", "primary_domain"] if c in d1i.columns])
-    d1i = base.merge(d1i, left_on="neutral_imaging_id", right_on="source_neutral_imaging_id", how="left")
-    d1e = ext_xw.merge(d1e, on="neutral_patient_id", how="left")
+    if len(d1_list) != len(set(d1_list)) or set(d1_list).difference(d1i) or set(d1_list).difference(d1e):
+        raise ValueError("Locked radiomics feature list is duplicated or absent from an input")
+    d1_feats = d1_list
+    d1i = align_stable_patient_features(base_identity, d1i, d1_feats,
+                                        cohort="internal radiomics", check_lesion_id=True)
+    d1e_has_source = "source_neutral_imaging_id" in d1e.columns
+    if d1e_has_source:
+        source_present = d1e["source_neutral_imaging_id"].fillna("").astype(str).str.strip().ne("")
+        if source_present.any() and not source_present.all():
+            raise ValueError("External radiomics has a partially missing source imaging ID")
+        d1e_has_source = bool(source_present.all())
+    d1e = align_stable_patient_features(external_identity, d1e, d1_feats,
+                                        cohort="external radiomics", check_lesion_id=d1e_has_source)
     for f in d1_feats:
         d1i[f] = pd.to_numeric(d1i[f], errors="coerce")
         d1e[f] = pd.to_numeric(d1e[f], errors="coerce")
-    internal["FAMILY_B_RAD_D1_FINAL13"] = d1i[["neutral_imaging_id", "label", "outer_fold", "primary_domain"] + d1_feats]
-    external["FAMILY_B_RAD_D1_FINAL13"] = d1e[["neutral_external_id", "neutral_patient_id"] + d1_feats]
+    internal["FAMILY_B_RAD_D1_FINAL13"] = d1i[["public_subject_id", "neutral_imaging_id", "label", "outer_fold", "primary_domain"] + d1_feats]
+    external["FAMILY_B_RAD_D1_FINAL13"] = d1e[["public_subject_id", "neutral_external_id", "neutral_patient_id"] + d1_feats]
     feats["FAMILY_B_RAD_D1_FINAL13"] = d1_feats
     audit.append({"resource": "FAMILY_B_RAD_D1_FINAL13", "path": str(PATHS["d1_internal_features"]), "available": True, "internal_rows": len(d1i), "external_rows": len(d1e), "feature_count": len(d1_feats), "status": "EXECUTABLE"})
     return internal, external, feats, audit
@@ -517,7 +571,7 @@ def make_model(classifier: str, params: dict[str, Any]):
     )
 
 
-def fit_tabular_candidate(candidate: str, classifier: str, df: pd.DataFrame, ext: pd.DataFrame, features: list[str], train_mask: np.ndarray, test_mask: np.ndarray, domains: list[str], max_features: int, fold_name: str) -> FitResult:
+def fit_tabular_candidate(candidate: str, classifier: str, df: pd.DataFrame, ext: pd.DataFrame, features: list[str], train_mask: np.ndarray, test_mask: np.ndarray, domains: list[str], max_features: int, fold_name: str, artifact_dir: Path | None = None) -> FitResult:
     selected, sel = meta_select(df, features, train_mask, domains, max_features)
     sel["candidate"] = candidate
     sel["fold_model"] = fold_name
@@ -531,14 +585,22 @@ def fit_tabular_candidate(candidate: str, classifier: str, df: pd.DataFrame, ext
     ytr = train["label"].astype(int).to_numpy()
     xte = scaler.transform(imp.transform(test[selected]))
     xext = scaler.transform(imp.transform(ext[selected]))
+    record_candidate_inputs(artifact_dir,
+                            train[["neutral_imaging_id", "label", "outer_fold"] + selected],
+                            test[["neutral_imaging_id", "label", "outer_fold"] + selected],
+                            ext[["neutral_external_id", "neutral_patient_id"] + selected], xtr, xte, xext)
     params, model = select_hyperparams(xtr, ytr, classifier)
+    record_fitted_candidate(artifact_dir, train[["neutral_imaging_id", "label", "outer_fold"] + selected],
+                            test[["neutral_imaging_id", "label", "outer_fold"] + selected],
+                            ext[["neutral_external_id", "neutral_patient_id"] + selected],
+                            selected, xtr, xte, xext, imp, scaler, model, params)
     pte = model.predict_proba(xte)[:, 1]
     pext = model.predict_proba(xext)[:, 1]
     ext_long = [{"neutral_external_id": r["neutral_external_id"], "neutral_patient_id": r["neutral_patient_id"], "candidate": candidate, "fold_model": fold_name, "prob_COP_fold": float(p)} for (_, r), p in zip(ext.iterrows(), pext)]
     return FitResult(candidate, fold_name, True, test["neutral_imaging_id"].astype(str).tolist(), test["label"].astype(int).tolist(), pte.astype(float).tolist(), ext_long, sel, len(selected), params, "PASS")
 
 
-def embedding_pc_frame(arr: np.ndarray, meta: pd.DataFrame, train_mask: np.ndarray, apply_mask: np.ndarray | None, ext_arr: np.ndarray | None = None) -> tuple[pd.DataFrame, pd.DataFrame | None, list[str], dict[str, Any]]:
+def embedding_pc_frame(arr: np.ndarray, meta: pd.DataFrame, train_mask: np.ndarray, apply_mask: np.ndarray | None, ext_arr: np.ndarray | None = None, artifact_dir: Path | None = None) -> tuple[pd.DataFrame, pd.DataFrame | None, list[str], dict[str, Any]]:
     xtr_raw = arr[train_mask]
     std = StandardScaler()
     xtr_std = std.fit_transform(xtr_raw)
@@ -548,6 +610,14 @@ def embedding_pc_frame(arr: np.ndarray, meta: pd.DataFrame, train_mask: np.ndarr
     k = min(int(np.searchsorted(cum, 0.90) + 1), 20, arr.shape[1], arr.shape[0] - 1)
     pca = PCA(n_components=k, random_state=SEED)
     pca.fit(xtr_std)
+    if artifact_dir is not None:
+        artifact_dir.mkdir(parents=True, exist_ok=False)
+        joblib.dump(std, artifact_dir / "embedding_scaler.joblib")
+        joblib.dump(pca, artifact_dir / "pca.joblib")
+        (artifact_dir / "transform_manifest.json").write_text(
+            json.dumps({"training_rows": int(train_mask.sum()), "n_components": k,
+                        "files_sha256": {p.name: sha256_file(p) for p in sorted(artifact_dir.iterdir()) if p.is_file()}},
+                       indent=2, sort_keys=True) + "\n", encoding="utf-8")
     all_pc = pca.transform(std.transform(arr))
     pc_cols = [f"PC{i+1:02d}" for i in range(k)]
     frame = meta[["neutral_imaging_id", "label", "outer_fold", "primary_domain"]].copy()
@@ -563,8 +633,10 @@ def embedding_pc_frame(arr: np.ndarray, meta: pd.DataFrame, train_mask: np.ndarr
     return frame, ext_frame, pc_cols, info
 
 
-def fit_embedding_candidate(candidate: str, family: str, classifier: str, meta: pd.DataFrame, arr: np.ndarray, ext_meta: pd.DataFrame, ext_arr: np.ndarray, train_mask: np.ndarray, test_mask: np.ndarray, domains: list[str], max_features: int, fold_name: str) -> FitResult:
-    pc_df, pc_ext, pc_cols, pca_info = embedding_pc_frame(arr, meta, train_mask, ext_meta, ext_arr)
+def fit_embedding_candidate(candidate: str, family: str, classifier: str, meta: pd.DataFrame, arr: np.ndarray, ext_meta: pd.DataFrame, ext_arr: np.ndarray, train_mask: np.ndarray, test_mask: np.ndarray, domains: list[str], max_features: int, fold_name: str, artifact_dir: Path | None = None) -> FitResult:
+    pc_df, pc_ext, pc_cols, pca_info = embedding_pc_frame(
+        arr, meta, train_mask, ext_meta, ext_arr,
+        artifact_dir / "pca" if artifact_dir is not None else None)
     selected, sel = meta_select(pc_df, pc_cols, train_mask, domains, max_features, prefix=f"{family}_")
     sel["candidate"] = candidate
     sel["fold_model"] = fold_name
@@ -580,7 +652,16 @@ def fit_embedding_candidate(candidate: str, family: str, classifier: str, meta: 
     ytr = train["label"].astype(int).to_numpy()
     xte = scaler.transform(imp.transform(test[selected]))
     xext = scaler.transform(imp.transform(pc_ext[selected]))
+    record_candidate_inputs(artifact_dir / "model" if artifact_dir is not None else None,
+                            train[["neutral_imaging_id", "label", "outer_fold"] + selected],
+                            test[["neutral_imaging_id", "label", "outer_fold"] + selected],
+                            pc_ext[["neutral_external_id", "neutral_patient_id"] + selected], xtr, xte, xext)
     params, model = select_hyperparams(xtr, ytr, classifier)
+    record_fitted_candidate(artifact_dir / "model" if artifact_dir is not None else None,
+                            train[["neutral_imaging_id", "label", "outer_fold"] + selected],
+                            test[["neutral_imaging_id", "label", "outer_fold"] + selected],
+                            pc_ext[["neutral_external_id", "neutral_patient_id"] + selected],
+                            selected, xtr, xte, xext, imp, scaler, model, params | pca_info)
     pte = model.predict_proba(xte)[:, 1]
     pext = model.predict_proba(xext)[:, 1]
     ext_long = [{"neutral_external_id": r["neutral_external_id"], "neutral_patient_id": r["neutral_patient_id"], "candidate": candidate, "fold_model": fold_name, "prob_COP_fold": float(p)} for (_, r), p in zip(pc_ext.iterrows(), pext)]
@@ -589,27 +670,85 @@ def fit_embedding_candidate(candidate: str, family: str, classifier: str, meta: 
 
 def combine_tabular(a: pd.DataFrame, b: pd.DataFrame, fa: list[str], fb: list[str]) -> tuple[pd.DataFrame, list[str]]:
     cols = ["neutral_imaging_id", "label", "outer_fold", "primary_domain"]
-    out = a[cols + fa].merge(b[["neutral_imaging_id"] + fb], on="neutral_imaging_id", how="left")
+    for col in ["public_subject_id"] + cols:
+        if not a[col].reset_index(drop=True).equals(b[col].reset_index(drop=True)):
+            raise ValueError(f"Stable feature families have different patient rows: {col}")
+    out = a[cols + fa].merge(b[["neutral_imaging_id"] + fb], on="neutral_imaging_id",
+                             how="left", validate="one_to_one", sort=False)
     return out, fa + fb
 
 
-def run_standard(base: pd.DataFrame, domains: list[str], tab_i: dict[str, pd.DataFrame], tab_e: dict[str, pd.DataFrame], tab_f: dict[str, list[str]], emb_mi: dict[str, pd.DataFrame], emb_me: dict[str, pd.DataFrame], emb_i: dict[str, np.ndarray], emb_e: dict[str, np.ndarray]) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict[str, list[FitResult]]]:
+def validate_stable_prefit(base: pd.DataFrame, tab_i: dict[str, pd.DataFrame],
+                           tab_e: dict[str, pd.DataFrame], emb_mi: dict[str, pd.DataFrame],
+                           emb_me: dict[str, pd.DataFrame], emb_i: dict[str, np.ndarray],
+                           emb_e: dict[str, np.ndarray]) -> dict[str, int]:
+    """Reject identity or row-order drift before any estimator is fitted."""
+    crosswalk = read_csv(PATHS["internal_crosswalk"])
+    first_external = next(iter(tab_e.values()))
+    ext_index = first_external[["neutral_external_id", "neutral_patient_id"]]
+    ci, ce = stable_patient_contract(base, ext_index, crosswalk)
+    internal_cols = ["public_subject_id", "neutral_imaging_id", "label", "outer_fold"]
+    external_cols = ["public_subject_id", "neutral_external_id", "neutral_patient_id"]
+    for family, frame in tab_i.items():
+        require_unique_ids(frame["public_subject_id"], f"{family} internal public IDs")
+        for col in internal_cols:
+            if not frame[col].reset_index(drop=True).astype(str).equals(ci[col].reset_index(drop=True).astype(str)):
+                raise ValueError(f"{family}: internal patient, label, fold or row order mismatch: {col}")
+    for family, frame in tab_e.items():
+        require_unique_ids(frame["public_subject_id"], f"{family} external public IDs")
+        for col in external_cols:
+            if not frame[col].reset_index(drop=True).astype(str).equals(ce[col].reset_index(drop=True).astype(str)):
+                raise ValueError(f"{family}: external patient or row order mismatch: {col}")
+    for family, array in emb_i.items():
+        meta = emb_mi[family]
+        if len(array) != len(ci) or len(meta) != len(ci):
+            raise ValueError(f"{family}: internal embedding count mismatch")
+        for col in ("neutral_imaging_id", "label", "outer_fold"):
+            if not meta[col].reset_index(drop=True).astype(str).equals(ci[col].reset_index(drop=True).astype(str)):
+                raise ValueError(f"{family}: internal embedding manifest mismatch: {col}")
+    for family, array in emb_e.items():
+        meta = emb_me[family]
+        if len(array) != len(ce) or len(meta) != len(ce):
+            raise ValueError(f"{family}: external embedding count mismatch")
+        for col in ("neutral_external_id", "neutral_patient_id"):
+            if not meta[col].reset_index(drop=True).astype(str).equals(ce[col].reset_index(drop=True).astype(str)):
+                raise ValueError(f"{family}: external embedding manifest mismatch: {col}")
+    for fold in sorted(ci["outer_fold"].unique()):
+        train = set(ci.loc[ci["outer_fold"].ne(fold), "public_subject_id"])
+        held_out = set(ci.loc[ci["outer_fold"].eq(fold), "public_subject_id"])
+        if not train or not held_out or train & held_out or train & set(ce["public_subject_id"]):
+            raise ValueError("Stable outer split has overlap or an empty partition")
+    return {"internal_patients": len(ci), "external_patients": len(ce),
+            "internal_identity_mismatches": 0, "external_identity_mismatches": 0,
+            "label_mismatches": 0, "fold_mismatches": 0}
+
+
+def run_standard(base: pd.DataFrame, domains: list[str], tab_i: dict[str, pd.DataFrame], tab_e: dict[str, pd.DataFrame], tab_f: dict[str, list[str]], emb_mi: dict[str, pd.DataFrame], emb_me: dict[str, pd.DataFrame], emb_i: dict[str, np.ndarray], emb_e: dict[str, np.ndarray], audit_dir: Path | None = None) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict[str, list[FitResult]]]:
+    identity_audit = validate_stable_prefit(base, tab_i, tab_e, emb_mi, emb_me, emb_i, emb_e)
+    if audit_dir is not None:
+        audit_dir.mkdir(parents=True, exist_ok=False)
+        crosswalk = read_csv(PATHS["internal_crosswalk"])
+        ext_index = next(iter(tab_e.values()))[["neutral_external_id", "neutral_patient_id"]]
+        internal_identity, external_identity = stable_patient_contract(base, ext_index, crosswalk)
+        internal_identity.to_csv(audit_dir / "internal_prefit_identity.csv", index=False)
+        external_identity.to_csv(audit_dir / "external_prefit_identity.csv", index=False)
+        write_json(audit_dir / "identity_audit.json", identity_audit)
     results: dict[str, list[FitResult]] = {}
     all_sel, all_oof, all_ext = [], [], []
     hr_i, hr_feats = combine_tabular(tab_i["FAMILY_A_HANDCRAFTED"], tab_i["FAMILY_B_RAD_D1_FINAL13"], tab_f["FAMILY_A_HANDCRAFTED"], tab_f["FAMILY_B_RAD_D1_FINAL13"])
-    hr_e = tab_e["FAMILY_A_HANDCRAFTED"][["neutral_external_id", "neutral_patient_id"] + tab_f["FAMILY_A_HANDCRAFTED"]].merge(tab_e["FAMILY_B_RAD_D1_FINAL13"][["neutral_patient_id"] + tab_f["FAMILY_B_RAD_D1_FINAL13"]], on="neutral_patient_id", how="left")
+    hr_e = tab_e["FAMILY_A_HANDCRAFTED"][["neutral_external_id", "neutral_patient_id"] + tab_f["FAMILY_A_HANDCRAFTED"]].merge(tab_e["FAMILY_B_RAD_D1_FINAL13"][["neutral_patient_id"] + tab_f["FAMILY_B_RAD_D1_FINAL13"]], on="neutral_patient_id", how="left", validate="one_to_one", sort=False)
     for fold in sorted(base["outer_fold"].unique()):
         train_mask = base["outer_fold"].ne(fold).to_numpy()
         test_mask = base["outer_fold"].eq(fold).to_numpy()
         fold_name = f"fold_{fold}"
         fold_results = [
-            fit_tabular_candidate("SP1_STABLE_HANDCRAFTED_ELASTICNET", "elasticnet", hr_i, hr_e, hr_feats, train_mask, test_mask, domains, 12, fold_name),
-            fit_tabular_candidate("SP2_STABLE_HANDCRAFTED_RANDOM_FOREST", "rf", hr_i, hr_e, hr_feats, train_mask, test_mask, domains, 12, fold_name),
+            fit_tabular_candidate("SP1_STABLE_HANDCRAFTED_ELASTICNET", "elasticnet", hr_i, hr_e, hr_feats, train_mask, test_mask, domains, 12, fold_name, audit_dir / fold_name / "SP1" if audit_dir is not None else None),
+            fit_tabular_candidate("SP2_STABLE_HANDCRAFTED_RANDOM_FOREST", "rf", hr_i, hr_e, hr_feats, train_mask, test_mask, domains, 12, fold_name, audit_dir / fold_name / "SP2" if audit_dir is not None else None),
         ]
         if "FAMILY_C_GENESIS_FROZEN" in emb_i:
-            fold_results.append(fit_embedding_candidate("SP3_STABLE_GENESIS_SUBSPACE_ELASTICNET", "GENESIS", "elasticnet", emb_mi["FAMILY_C_GENESIS_FROZEN"], emb_i["FAMILY_C_GENESIS_FROZEN"], emb_me["FAMILY_C_GENESIS_FROZEN"], emb_e["FAMILY_C_GENESIS_FROZEN"], train_mask, test_mask, domains, 8, fold_name))
+            fold_results.append(fit_embedding_candidate("SP3_STABLE_GENESIS_SUBSPACE_ELASTICNET", "GENESIS", "elasticnet", emb_mi["FAMILY_C_GENESIS_FROZEN"], emb_i["FAMILY_C_GENESIS_FROZEN"], emb_me["FAMILY_C_GENESIS_FROZEN"], emb_e["FAMILY_C_GENESIS_FROZEN"], train_mask, test_mask, domains, 8, fold_name, audit_dir / fold_name / "SP3" if audit_dir is not None else None))
         if "FAMILY_D_TANGERINE_FROZEN" in emb_i:
-            fold_results.append(fit_embedding_candidate("SP4_STABLE_TANGERINE_SUBSPACE_ELASTICNET", "TANGERINE", "elasticnet", emb_mi["FAMILY_D_TANGERINE_FROZEN"], emb_i["FAMILY_D_TANGERINE_FROZEN"], emb_me["FAMILY_D_TANGERINE_FROZEN"], emb_e["FAMILY_D_TANGERINE_FROZEN"], train_mask, test_mask, domains, 8, fold_name))
+            fold_results.append(fit_embedding_candidate("SP4_STABLE_TANGERINE_SUBSPACE_ELASTICNET", "TANGERINE", "elasticnet", emb_mi["FAMILY_D_TANGERINE_FROZEN"], emb_i["FAMILY_D_TANGERINE_FROZEN"], emb_me["FAMILY_D_TANGERINE_FROZEN"], emb_e["FAMILY_D_TANGERINE_FROZEN"], train_mask, test_mask, domains, 8, fold_name, audit_dir / fold_name / "SP4" if audit_dir is not None else None))
         for fr in fold_results:
             results.setdefault(fr.candidate, []).append(fr)
             all_sel.append(fr.selection)
@@ -629,7 +768,9 @@ def run_standard(base: pd.DataFrame, domains: list[str], tab_i: dict[str, pd.Dat
         for ok, fam, label in [(ok_sp3, "FAMILY_C_GENESIS_FROZEN", "GENESIS"), (ok_sp4, "FAMILY_D_TANGERINE_FROZEN", "TANGERINE")]:
             if ok:
                 meta = emb_mi[fam]
-                pc_df, pc_ext, _, _ = embedding_pc_frame(emb_i[fam], meta, train_mask, emb_me[fam], emb_e[fam])
+                pc_df, pc_ext, _, _ = embedding_pc_frame(
+                    emb_i[fam], meta, train_mask, emb_me[fam], emb_e[fam],
+                    audit_dir / fold_name / f"SP6_SOURCE_{label}" if audit_dir is not None else None)
                 sel = ok.selection.loc[ok.selection["selected_after_pruning"].eq(True), "raw_feature"].astype(str).tolist()
                 renamed = {s: f"{label}_{s}" for s in sel}
                 part_i = pc_df[["neutral_imaging_id", "label", "outer_fold", "primary_domain"] + sel].rename(columns=renamed)
@@ -645,7 +786,8 @@ def run_standard(base: pd.DataFrame, domains: list[str], tab_i: dict[str, pd.Dat
             for p in multi_parts_e[1:]:
                 me = me.merge(p.drop(columns=["neutral_external_id"]), on="neutral_patient_id", how="left")
             for cand, clf in [("SP5_STABLE_MULTI_REPRESENTATION_ELASTICNET", "elasticnet"), ("SP6_STABLE_MULTI_REPRESENTATION_RANDOM_FOREST", "rf")]:
-                fr = fit_tabular_candidate(cand, clf, mi, me, multi_feats, train_mask, test_mask, domains, 20, fold_name)
+                fr = fit_tabular_candidate(cand, clf, mi, me, multi_feats, train_mask, test_mask, domains, 20, fold_name,
+                                           audit_dir / fold_name / cand.split("_")[0] if audit_dir is not None else None)
                 results.setdefault(fr.candidate, []).append(fr)
                 all_sel.append(fr.selection)
                 for nid, y, p in zip(fr.pred_ids, fr.pred_y, fr.pred_p):
@@ -708,8 +850,10 @@ def external_metrics(ext_long: pd.DataFrame, ext_labels: pd.DataFrame) -> tuple[
 
 
 def lodo(tab_i: dict[str, pd.DataFrame], tab_e: dict[str, pd.DataFrame], tab_f: dict[str, list[str]], emb_mi: dict[str, pd.DataFrame], emb_me: dict[str, pd.DataFrame], emb_i: dict[str, np.ndarray], emb_e: dict[str, np.ndarray], domains: list[str]) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    validate_stable_prefit(tab_i["FAMILY_A_HANDCRAFTED"][["neutral_imaging_id", "label", "outer_fold", "primary_domain"]],
+                           tab_i, tab_e, emb_mi, emb_me, emb_i, emb_e)
     hr_i, hr_feats = combine_tabular(tab_i["FAMILY_A_HANDCRAFTED"], tab_i["FAMILY_B_RAD_D1_FINAL13"], tab_f["FAMILY_A_HANDCRAFTED"], tab_f["FAMILY_B_RAD_D1_FINAL13"])
-    hr_e = tab_e["FAMILY_A_HANDCRAFTED"][["neutral_external_id", "neutral_patient_id"] + tab_f["FAMILY_A_HANDCRAFTED"]].merge(tab_e["FAMILY_B_RAD_D1_FINAL13"][["neutral_patient_id"] + tab_f["FAMILY_B_RAD_D1_FINAL13"]], on="neutral_patient_id", how="left")
+    hr_e = tab_e["FAMILY_A_HANDCRAFTED"][["neutral_external_id", "neutral_patient_id"] + tab_f["FAMILY_A_HANDCRAFTED"]].merge(tab_e["FAMILY_B_RAD_D1_FINAL13"][["neutral_patient_id"] + tab_f["FAMILY_B_RAD_D1_FINAL13"]], on="neutral_patient_id", how="left", validate="one_to_one", sort=False)
     preds, sels = [], []
     for d in domains:
         train_mask = hr_i["primary_domain"].ne(d).to_numpy()

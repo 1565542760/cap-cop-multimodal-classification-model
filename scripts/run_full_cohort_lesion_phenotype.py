@@ -21,6 +21,7 @@ if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
 from cap_cop.imaging.radiomics import lesion_phenotype as exact
+from cap_cop.imaging.radiomics.mask_contract import validate_locked_mask_contract, validate_mask_metadata
 from cap_cop.imaging.radiomics.per_slice_dicom_sampler import (
     read_axial_series,
     sample_normalized_roi,
@@ -36,7 +37,7 @@ ROI_MATRIX = 144
 ROI_SPACING_MM = 184.0 / ROI_MATRIX
 HU_MIN = -1000.0
 HU_MAX = 400.0
-GEOMETRY_EXCEPTIONS = PROJECT_ROOT / "configs" / "lesion_phenotype_geometry_exceptions.json"
+GEOMETRY_EXCEPTIONS = PROJECT_ROOT / "data" / "lesion_phenotype_geometry_exceptions.json"
 
 
 def sha256_file(path: Path) -> str:
@@ -72,12 +73,19 @@ def resample_roi_from_native(image: sitk.Image, center_xyz: tuple[float, float, 
 
 def extract_subject(task: dict[str, Any]) -> dict[str, Any]:
     use_per_slice_sampler = bool(task.get("use_per_slice_sampler", False))
-    image = None if use_per_slice_sampler else read_image_lps(Path(task["dicom_dir"]))
-    native_slices = read_axial_series(Path(task["dicom_dir"])) if use_per_slice_sampler else None
     mask = np.load(task["mask_path"]).astype(np.uint8)
     metadata = json.loads(Path(task["metadata_path"]).read_text(encoding="utf-8"))
     component_labels, component_count = ndimage.label(mask > 0, structure=np.ones((3, 3, 3), dtype=np.uint8))
+    validate_mask_metadata(task["public_subject_id"], mask.shape, metadata)
     components = exact.component_table(mask, metadata)
+    if task["cohort"] == "internal":
+        validate_locked_mask_contract(
+            task["public_subject_id"], Path(task["mask_path"]),
+            component_count, task.get("locked_roi_centers", []),
+            mask_shape=mask.shape, metadata=metadata, components=components,
+        )
+    image = None if use_per_slice_sampler else read_image_lps(Path(task["dicom_dir"]))
+    native_slices = read_axial_series(Path(task["dicom_dir"])) if use_per_slice_sampler else None
     if component_count != len(components):
         raise RuntimeError(f"Component count mismatch for {task['public_subject_id']}")
 
@@ -165,6 +173,8 @@ def load_contract(segmentation_audit: Path) -> pd.DataFrame:
     )
     if len(frame) != 408 or not frame["status"].eq("PASS").all():
         raise RuntimeError("Expected 408 passing segmentation-backed phenotype inputs")
+    if not GEOMETRY_EXCEPTIONS.is_file():
+        raise RuntimeError("Authorised lesion phenotype geometry-exception contract is missing from data/")
     exceptions = json.loads(GEOMETRY_EXCEPTIONS.read_text(encoding="utf-8"))
     per_slice_subjects = set(exceptions["per_slice_dicom_physical_geometry_subjects"])
     if not per_slice_subjects.issubset(set(frame["public_subject_id"])):

@@ -21,6 +21,8 @@ from cap_cop.imaging.segmentation.preprocess import (
     resample_hu_image_to_working_spacing,
 )
 from cap_cop.data.release_inputs import dicom_dir
+
+
 def mask_image_from_npy(mask_path: Path, reference: sitk.Image) -> sitk.Image:
     mask = np.load(mask_path).astype(np.uint8)
     image_shape_zyx = tuple(sitk.GetArrayFromImage(reference).shape)
@@ -33,10 +35,15 @@ def mask_image_from_npy(mask_path: Path, reference: sitk.Image) -> sitk.Image:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run de-identified DICOM and a predicted lesion mask through PyRadiomics and the locked RF.")
-    parser.add_argument("--mask-path", type=Path, default=PROJECT_ROOT / "outputs" / "segmentation_smoke" / "internal" / "CAP_0001_strict_oof_predicted_mask.npy")
+    parser.add_argument("--subject-id", required=True)
+    parser.add_argument("--mask-path", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, default=PROJECT_ROOT / "outputs" / "lesion_radiomics_single_case")
     args = parser.parse_args()
-    case_dicom_dir = dicom_dir("internal", "CAP", "CAP_0001")
+    crosswalk = pd.read_csv(PROJECT_ROOT / "data" / "public_subject_model_crosswalk.csv", dtype=str)
+    rows = crosswalk.loc[crosswalk["cohort"].eq("internal") & crosswalk["public_subject_id"].eq(args.subject_id)]
+    if len(rows) != 1:
+        raise ValueError("Subject must have one internal crosswalk row")
+    case_dicom_dir = dicom_dir("internal", rows.iloc[0]["diagnosis_label"], args.subject_id)
     mask_path = args.mask_path.resolve()
     out_dir = args.output_dir.resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -56,14 +63,14 @@ def main() -> None:
     row = {name: float(values[name]) for name in features}
     prob = float(pipeline.predict_proba(pd.DataFrame([row], columns=features))[:, 1][0])
 
-    feature_path = out_dir / "CAP_0001_single_case_final_features.csv"
-    pred_path = out_dir / "CAP_0001_single_case_rf_prediction.json"
-    pd.DataFrame([{"public_subject_id": "CAP_0001", **row}]).to_csv(feature_path, index=False)
+    feature_path = out_dir / f"{args.subject_id}_single_case_final_features.csv"
+    pred_path = out_dir / f"{args.subject_id}_single_case_rf_prediction.json"
+    pd.DataFrame([{"public_subject_id": args.subject_id, **row}]).to_csv(feature_path, index=False)
     pred_path.write_text(
         json.dumps(
             {
                 "status": "passed",
-                "public_subject_id": "CAP_0001",
+                "public_subject_id": args.subject_id,
                 "feature_count": len(features),
                 "probability_COP": prob,
                 "mask_path": str(mask_path),

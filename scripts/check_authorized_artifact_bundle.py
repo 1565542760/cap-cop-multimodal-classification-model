@@ -21,6 +21,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 REQUIRED_FILES = {
     "cohort_crosswalk": "data/public_subject_model_crosswalk.csv",
     "model_config": "configs/models.json",
+    "artifact_selectors": "configs/artifact_selectors.json",
     "segmentation_checkpoint_manifest": "models/segmentation/manifests/locked_checkpoint_manifest.csv",
     "segmentation_split_manifest": "models/segmentation/manifests/locked_nested_split_patient_manifest.csv",
     "segmentation_protocol_lock": "models/segmentation/manifests/lesion_segmentation_protocol_lock.json",
@@ -29,6 +30,9 @@ REQUIRED_FILES = {
     "whole_chest_encoder": "models/whole_chest_ct/foundation_encoder/tangerine_foundation_encoder.pth",
     "whole_chest_result_lock": "models/whole_chest_ct/result_lock.json",
     "stable_result_lock": "models/stable_multirepresentation_ct/result_lock.json",
+    "stable_encoder": "models/stable_multirepresentation_ct/foundation_encoders/genesis_chest_ct.pt",
+    "stable_cohort_metadata_source": "models/stable_multirepresentation_ct/derived_inputs/09_V3_4_STANDARD_INTERNAL_OOF_PREDICTIONS.csv",
+    "stable_domain_contract": "models/stable_multirepresentation_ct/derived_inputs/03_PRIMARY_DG_DOMAIN_LOCK.json",
     "exploratory_external_lock": "models/supplementary_exploratory/full_chest_densenet/external_prediction_lock.json",
     "fusion_weight_lock": "models/multimodal_fusion/final_weight_lock.csv",
     "fusion_result_lock": "models/multimodal_fusion/final_result_lock.json",

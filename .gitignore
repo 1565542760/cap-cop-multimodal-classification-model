@@ -68,6 +68,7 @@ CAP_COP_TOOLS/
 # Local provenance and patient-level audit records. These may contain private
 # source paths, neutral-to-source bridges, or case-level acquisition metadata.
 /docs/ci_audit/**
+/docs/raw_input_deletion_record_20261014.md
 /docs/migration_manifests/**
 /docs/full_reproduction_evidence_20261011/**
 /docs/model_d_provenance_audit.md
@@ -85,4 +86,3 @@ models/**/*model_registry*.csv
 /scripts/audit_historical_imaging_identity_mapping.py
 /scripts/audit_locked_delong.py
 /scripts/compute_locked_prediction_ci.py
-/scripts/run_supplementary_exploratory_subset_replay.py

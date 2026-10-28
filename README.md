@@ -52,21 +52,23 @@ python -m pip install --upgrade pip
 python -m pip install -e ".[test]"
 ```
 
-For the lesion-ROI PyRadiomics workflow, use an environment with:
+For the lesion-ROI PyRadiomics workflow, use a separate Python 3.9 environment
+with:
 
 ```powershell
 python -m pip install -r requirements-radiomics-replay-tested.txt
 ```
 
-For the whole-chest CT and representation workflows, use an environment with:
+For the whole-chest CT and representation workflows, use a separate Python
+3.11 environment with:
 
 ```powershell
 python -m pip install -r requirements-replay-tested.txt
 ```
 
-The two imaging requirements files describe separate environments and should
-not be installed into the same environment when their pinned package
-versions conflict.
+The imaging and PyRadiomics requirements files describe separate environments
+and should not be installed together. The Python 3.11 file excludes
+PyRadiomics; Python 3.9 owns that stage.
 
 ### Required Python environments
 

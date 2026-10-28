@@ -12,13 +12,12 @@ import sys
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 import joblib
 import numpy as np
 import pandas as pd
 import SimpleITK as sitk
-from radiomics import featureextractor
 from scipy import stats
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.impute import SimpleImputer
@@ -36,6 +35,10 @@ from sklearn.metrics import (
 from sklearn.model_selection import StratifiedKFold
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
+from cap_cop.data.model_contracts import align_radiomics_training_inputs, require_binary_classes
+
+if TYPE_CHECKING:
+    from radiomics import featureextractor
 
 
 PROJECT_ROOT = Path(os.environ.get("CAP_COP_PROJECT_ROOT", Path(__file__).resolve().parents[3]))
@@ -159,6 +162,9 @@ def stop(status: str, reason: str, details: dict[str, Any] | None = None) -> Non
 
 
 def extractor_for_spacing(spacing: float = 1.5) -> featureextractor.RadiomicsFeatureExtractor:
+    # Matrix-only modelling does not require the extraction binary extension.
+    from radiomics import featureextractor
+
     params = {
         "imageType": {"Original": {}},
         "featureClass": {k: [] for k in CLASSES},
@@ -352,7 +358,8 @@ def extract_internal_matrix() -> pd.DataFrame:
 
 
 def feature_cols(matrix: pd.DataFrame) -> list[str]:
-    meta = {"neutral_patient_id", "source_neutral_imaging_id", "outer_fold", "perturbation", "status", "error"}
+    meta = {"public_subject_id", "neutral_patient_id", "source_neutral_imaging_id",
+            "outer_fold", "perturbation", "status", "error"}
     return [c for c in matrix.columns if c not in meta]
 
 
@@ -510,9 +517,7 @@ def select_best_candidate(score_df: pd.DataFrame) -> pd.Series:
 def nested_cv(labels: pd.DataFrame, matrix: pd.DataFrame, acq: dict[str, dict]) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, dict[str, Any]]:
     baseline = matrix[matrix["perturbation"] == "BASELINE"].copy()
     feats_all = feature_cols(matrix)
-    X_all = baseline.set_index("neutral_patient_id")[feats_all].apply(pd.to_numeric, errors="coerce")
-    y_by_id = labels.set_index("neutral_patient_id")["label_binary"].astype(int)
-    fold_by_id = baseline.set_index("neutral_patient_id")["outer_fold"].astype(int)
+    X_all, y_by_id, fold_by_id = align_radiomics_training_inputs(labels, baseline, feats_all)
     oof = []
     outer_metrics = []
     inner_rows = []
@@ -532,6 +537,8 @@ def nested_cv(labels: pd.DataFrame, matrix: pd.DataFrame, acq: dict[str, dict]) 
         for inner_fold, (tr_idx, va_idx) in enumerate(inner.split(Xtr_all, ytr_all)):
             inner_train_ids = Xtr_all.index[tr_idx].tolist()
             inner_val_ids = Xtr_all.index[va_idx].tolist()
+            require_binary_classes(y_by_id.loc[inner_train_ids], f"Outer {outer} inner {inner_fold} training")
+            require_binary_classes(y_by_id.loc[inner_val_ids], f"Outer {outer} inner {inner_fold} validation")
             inner_stab = stability_table(matrix, inner_train_ids)
             inner_feats = reduce_redundancy(X_all.loc[inner_train_ids], inner_stab)
             if not inner_feats:
@@ -597,8 +604,7 @@ def nested_cv(labels: pd.DataFrame, matrix: pd.DataFrame, acq: dict[str, dict]) 
 def fit_final(labels: pd.DataFrame, matrix: pd.DataFrame) -> tuple[Path, dict[str, Any], list[str]]:
     baseline = matrix[matrix["perturbation"] == "BASELINE"].copy()
     feats_all = feature_cols(matrix)
-    X_all = baseline.set_index("neutral_patient_id")[feats_all].apply(pd.to_numeric, errors="coerce")
-    y = labels.set_index("neutral_patient_id").loc[X_all.index, "label_binary"].astype(int)
+    X_all, y, _ = align_radiomics_training_inputs(labels, baseline, feats_all)
     full_stab = stability_table(matrix, X_all.index.tolist())
     write_csv(DIRS["robust"] / "lesion_radiomics_replay_FULL_INTERNAL_PYRADIOMICS_STABILITY_AUDIT.csv", full_stab)
     feats = reduce_redundancy(X_all, full_stab)
@@ -612,6 +618,8 @@ def fit_final(labels: pd.DataFrame, matrix: pd.DataFrame) -> tuple[Path, dict[st
         for kind, params in model_grid():
             fold_ms = []
             for tr, va in cv.split(X_all[fset], y):
+                require_binary_classes(y.iloc[tr], "Final model inner training")
+                require_binary_classes(y.iloc[va], "Final model inner validation")
                 pipe = build_model(kind, params)
                 pipe.fit(X_all.iloc[tr][fset], y.iloc[tr])
                 p = pipe.predict_proba(X_all.iloc[va][fset])[:, 1]
