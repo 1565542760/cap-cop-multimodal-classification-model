@@ -60,7 +60,9 @@ py -3.11 -m venv .venv-imaging
 `requirements-replay-tested.txt` records the tested Python 3.11 package
 versions but does not include PyRadiomics, which belongs in Python 3.9.
 The Torch wheel must match the collaborator's CPU/CUDA host; import success
-alone does not establish encoder inference. Torch is unnecessary for
+alone does not establish encoder inference. The imaging extra pins
+Torch 2.11.0, torchvision 0.26.0, timm 1.0.30 and MONAI 1.6.0;
+do not silently upgrade these during a locked replay. Torch is unnecessary for
 phenotype-only and tabular tests.
 
 With all three environments and authorised inputs prepared, the single-case

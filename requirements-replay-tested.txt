@@ -6,6 +6,7 @@ scikit-learn==1.9.0
 scipy==1.17.1
 # The tested host uses torch 2.11.0+cu128; install the matching CPU/GPU build for the target host.
 torch==2.11.0
+torchvision==0.26.0
 SimpleITK==2.5.5
 pydicom==3.0.1
 PyYAML==6.0.3
